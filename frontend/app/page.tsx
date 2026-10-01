@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 
 type Reply = { answer: string; status: string; location?: {name:string;country:string}; weather?: {temperature_2m:number|null;wind_speed_10m:number|null;precipitation_probability:number|null;uv_index:number|null;observed_at:string;timezone:string;source:string}; policy?: {outcome:string;sop_id?:string;title?:string;severity?:string;trace?:{sop_id:string;matched:boolean;detail:string}[]}; trace:string[] };
 type Turn = { question:string; answer?:string; status?:string; at:string };
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Vercel Services routes this same-origin path to FastAPI. Local development
+// keeps the standalone backend URL unless NEXT_PUBLIC_API_URL overrides it.
+const API = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "development" ? "http://localhost:8000" : "");
 function sessionId() { if (typeof window === "undefined") return ""; let id=sessionStorage.getItem("weatherwise-session"); if(!id){id=crypto.randomUUID();sessionStorage.setItem("weatherwise-session",id);} return id; }
 
 export default function Home() {

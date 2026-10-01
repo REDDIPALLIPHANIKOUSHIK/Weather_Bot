@@ -10,7 +10,8 @@ from .models import Location, WeatherFacts, PolicyResult, SOPDefinition
 from pydantic import ValidationError
 
 log = logging.getLogger(__name__)
-ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = BACKEND_ROOT.parent
 
 class UpstreamError(Exception):
     pass
@@ -86,7 +87,19 @@ class OpenMeteo:
             raise UpstreamError("Weather service returned invalid weather facts") from exc
 
 def load_sops(path: Path | None = None) -> list[dict[str, Any]]:
-    source = path or ROOT / "config" / "sops.yaml"
+    # Vercel builds the backend as an independent service, so its bundle keeps
+    # a copy under backend/config. Local development uses the canonical root
+    # config/sops.yaml. Both paths are anchored to this module, never cwd.
+    if path is not None:
+        source = path
+    else:
+        source = next(
+            (candidate for candidate in (
+                BACKEND_ROOT / "config" / "sops.yaml",
+                REPOSITORY_ROOT / "config" / "sops.yaml",
+            ) if candidate.is_file()),
+            REPOSITORY_ROOT / "config" / "sops.yaml",
+        )
     with source.open(encoding="utf-8") as f:
         value = yaml.safe_load(f)
     if not isinstance(value, dict) or not isinstance(value.get("sops"), list):
