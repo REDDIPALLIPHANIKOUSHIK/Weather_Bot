@@ -78,6 +78,14 @@ class AdvisoryCoordinator:
         # Case A: Explicit location in the user's message or extracted intent
         target_location: Location | None = None
 
+        # Guard against any activity name mistakenly leaking into location_text
+        if intent.location_text and (
+            intent.location_text.lower() in {"park", "the park", "a park", "walk", "a walk", "running", "cycling", "picnic", "hike", "commuting"}
+            or intent.location_text.lower() == str(intent.activity).lower()
+        ):
+            trace.append(f"Ignored false location candidate '{intent.location_text}' because it matches activity")
+            intent.location_text = None
+
         if intent.location_text and not intent.use_current_location:
             try:
                 resolved_loc = await self.weather_service.geocode(intent.location_text)

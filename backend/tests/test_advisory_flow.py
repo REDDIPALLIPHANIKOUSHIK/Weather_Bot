@@ -96,3 +96,19 @@ async def test_prompt_injection_resistance():
     assert resp.policy.sop_id == "WB-001"
     assert resp.policy.severity == "HIGH"
     assert "WB-001" in resp.answer
+
+
+@pytest.mark.asyncio
+async def test_go_for_park_now_with_active_location():
+    coordinator = AdvisoryCoordinator(weather_service=MockWeatherService())
+    gps = CurrentLocation(latitude=12.9716, longitude=77.5946, accuracy=15.0)
+    # Query: "can I go for Park now" with live GPS location active
+    resp = await coordinator.run(
+        session_id="test-session-park-live",
+        message="can I go for Park now",
+        current_location=gps,
+    )
+    assert resp.status in {"matched", "no_policy"}
+    assert resp.location is not None
+    assert resp.location.name == "Your current location"
+    assert "Park" not in resp.location.name or resp.location.name == "Your current location"

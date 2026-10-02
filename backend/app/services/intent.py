@@ -132,7 +132,19 @@ SUPPORTED_ACTIVITIES = {
 ACTIVITY_BY_KEYWORD: dict[str, str] = {}
 for act, (_, terms) in SUPPORTED_ACTIVITIES.items():
     for term in terms:
-        ACTIVITY_BY_KEYWORD[term] = act
+        ACTIVITY_BY_KEYWORD[term.lower()] = act
+
+ACTIVITY_WORDS = {
+    "park", "the park", "a park", "parks", "playground",
+    "walk", "a walk", "walking", "stroll",
+    "run", "a run", "running", "jog", "jogging",
+    "bike", "biking", "cycle", "cycling", "bicycle", "ride",
+    "hike", "hiking", "trek", "trekking",
+    "picnic", "a picnic", "picnicking",
+    "commute", "commuting",
+    "leisure", "outdoor", "outdoors",
+    "today", "now", "tomorrow", "tonight", "morning", "afternoon", "evening"
+}
 
 # Multilingual current location triggers
 CURRENT_LOCATION_PATTERNS = [
@@ -188,27 +200,7 @@ def parse_intent_locally(message: str, session_context: dict[str, Any] | None = 
                 use_curr = True
                 break
 
-    # 2. Extract explicit city/location
-    explicit_location: str | None = None
-    loc_match = re.search(
-        r"\b(?:in|at|near|around|for)\s+([A-Za-z\s.'-]{2,40}?)(?=\s+(?:today|tomorrow|this|now|tonight|right|morning|afternoon|evening|$)|[?.!,]|$)",
-        message,
-        re.IGNORECASE,
-    )
-    if loc_match:
-        cand = loc_match.group(1).strip()
-        if cand.lower() not in {"today", "tomorrow", "cycling", "running", "hiking", "picnic", "a walk", "the park"}:
-            explicit_location = cand
-
-    # Check for direct Indic city mention in text if no explicit english match
-    if not explicit_location:
-        from .weather import INDIC_CITY_MAP
-        for indic_name in INDIC_CITY_MAP:
-            if indic_name in message:
-                explicit_location = indic_name
-                break
-
-    # 3. Extract Activity
+    # 2. Extract Activity FIRST so activity terms are never misparsed as cities
     detected_act: str | None = None
     sorted_keywords = sorted(ACTIVITY_BY_KEYWORD.keys(), key=lambda k: len(k), reverse=True)
     for kw in sorted_keywords:
@@ -218,9 +210,31 @@ def parse_intent_locally(message: str, session_context: dict[str, Any] | None = 
                 detected_act = ACTIVITY_BY_KEYWORD[kw]
                 break
         else:
-            # Indic or non-word script
+            # Indic or non-ASCII script
             if kw in message:
                 detected_act = ACTIVITY_BY_KEYWORD[kw]
+                break
+
+    # 3. Extract explicit city/location (strictly in/at/near/around, NOT 'for')
+    explicit_location: str | None = None
+    loc_match = re.search(
+        r"\b(?:in|at|near|around)\s+([A-Za-z\s.'-]{2,40}?)(?=\s+(?:today|tomorrow|this|now|tonight|right|morning|afternoon|evening|$)|[?.!,]|$)",
+        message,
+        re.IGNORECASE,
+    )
+    if loc_match:
+        cand = loc_match.group(1).strip()
+        cand_lower = cand.lower()
+        # Verify candidate is not an activity term or time word
+        if cand_lower not in ACTIVITY_WORDS and cand_lower not in ACTIVITY_BY_KEYWORD:
+            explicit_location = cand
+
+    # Check for direct Indic city mention in text if no explicit english match
+    if not explicit_location:
+        from .weather import INDIC_CITY_MAP
+        for indic_name in INDIC_CITY_MAP:
+            if indic_name in message:
+                explicit_location = indic_name
                 break
 
     # 4. Extract Time reference
@@ -287,7 +301,7 @@ async def extract_intent(
             '  "use_current_location": boolean (true if user asked about here/current location/GPS),\n'
             '  "time_reference": "now"|"today"|"this afternoon"|"this evening"|"tonight"|"tomorrow"\n'
             "}\n"
-            "Do NOT evaluate safety or make weather claims. Return strictly JSON."
+            "Important: Do NOT mistake activities like 'Park', 'Walk', 'Picnic' for city locations. Return strictly JSON."
         )
 
         body = {
@@ -311,7 +325,12 @@ async def extract_intent(
                 elif act not in SUPPORTED_ACTIVITIES:
                     act = local_result.activity
 
-                loc = parsed.get("location") or local_result.location_text
+                loc = parsed.get("location")
+                if loc and (loc.lower() in ACTIVITY_WORDS or loc.lower() in ACTIVITY_BY_KEYWORD):
+                    loc = None
+                if not loc:
+                    loc = local_result.location_text
+
                 use_curr = parsed.get("use_current_location", local_result.use_current_location)
                 time_ref = parsed.get("time_reference", local_result.time_reference)
 
