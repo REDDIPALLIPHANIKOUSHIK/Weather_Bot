@@ -244,7 +244,7 @@ async def polish_or_translate_advisory(raw_answer: str, target_lang: str) -> str
         return raw_answer
 
     try:
-        model = os.getenv("GEMINI_INTENT_MODEL", "gemini-2.0-flash")
+        model = os.getenv("GEMINI_INTENT_MODEL", "gemini-3.8-flash")
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
         prompt = (
             f"You are Weatherwise. Translate and present this strictly grounded outdoor weather advisory into fluent, respectful, natural {lang_name}.\n"

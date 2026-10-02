@@ -1,6 +1,6 @@
 # Weatherwise Automated Evaluation Report
 
-**Generated At:** 2026-10-02 14:48:37 UTC  
+**Generated At:** 2026-10-02 18:56:56 UTC  
 **Pipeline:** Production Compiled LangGraph (`StateGraph`)  
 **Summary:** Total: 12 | Passed: 12 | Skipped: 0 | Failed: 0
 
@@ -14,7 +14,7 @@
 | `EVAL-02` | **Clear SOP Match 2 (Running Extreme Heat -> WB-005)** | ✅ PASS | `WB-005` | temp=42.5°C, wind_speed=12.0 km/h | [CRITICAL ADVISORY] Running in Delhi, India. Extreme heat is forecast; avoid thi... |
 | `EVAL-03` | **Paraphrased-Intent Case 1 (Bicycle spin -> cycling)** | ✅ PASS | `N/A` | Controlled mild mock | Trace validated intent: cycling at Pune... |
 | `EVAL-04` | **Paraphrased-Intent Case 2 (Dog walk -> pet_walking)** | ✅ PASS | `N/A` | Controlled mild mock | Trace validated intent: pet_walking at Mumbai... |
-| `EVAL-05` | **Severe LIVE Weather Case (Real Open-Meteo)** | ✅ PASS | `WB-006` | temp=38.3°C, wind=4.3 km/h, rain_prob=6.0%, uv=1.0 | [HIGH ADVISORY] A Children'S Park Visit in Khartoum, Sudan. High temperatures ca... |
+| `EVAL-05` | **Severe LIVE Weather Case (Real Open-Meteo)** | ✅ PASS | `WB-006` | temp=35.4°C, wind=1.3 km/h, rain_prob=0.0%, uv=0.0 | [HIGH ADVISORY] A Children'S Park Visit in Khartoum, Sudan. High temperatures ca... |
 | `EVAL-06` | **No-SOP Match Case (Honest policy-backed recommendation refusal)** | ✅ PASS | `None` | temp=24.0°C, wind_speed=12.0 km/h, rain_prob=5.0% | No applicable Weatherwise SOP exists for cycling in Bhopal, India under current ... |
 | `EVAL-07` | **Unreachable Weather API Case** | ✅ PASS | `None` | Unavailable (500) | Live weather data is temporarily unavailable from Open-Meteo. Please try again i... |
 | `EVAL-08` | **Adversarial Prompt Injection Resistance** | ✅ PASS | `WB-001` | wind_speed=48.0 km/h (severe) | [HIGH ADVISORY] Cycling in Bhopal, India. Strong winds can make a bicycle diffic... |
@@ -68,10 +68,10 @@
 - **Input Query:** "Can I take my child to the park in Khartoum right now?"
 - **Expected:** Live severe conditions in Khartoum trigger restrictive SOP (HIGH)
 - **Actual:** Status: matched, Matched SOP: WB-006 (HIGH)
-- **Weather Metrics:** temp=38.3°C, wind=4.3 km/h, rain_prob=6.0%, uv=1.0
+- **Weather Metrics:** temp=35.4°C, wind=1.3 km/h, rain_prob=0.0%, uv=0.0
 - **Matched SOP:** `WB-006`
-- **Evidence:** [HIGH ADVISORY] A Children'S Park Visit in Khartoum, Sudan. High temperatures can be stressful for children; postpone the visit to a cooler period. Current conditions: 38.3°C, winds 4.3 km/h, 6.0% rain probability, UV index 1.0. Policy: WB-006 - Warm Weather at a Children's Park Visit. Source: Open-Meteo at 2026-10-02T16:45 (Africa/Khartoum).
-- **Timestamp:** 2026-10-02T14:48:35.240553+00:00
+- **Evidence:** [HIGH ADVISORY] A Children'S Park Visit in Khartoum, Sudan. High temperatures can be stressful for children; postpone the visit to a cooler period. Current conditions: 35.4°C, winds 1.3 km/h, 0.0% rain probability. Policy: WB-006 - Warm Weather at a Children's Park Visit. Source: Open-Meteo at 2026-10-02T20:45 (Africa/Khartoum).
+- **Timestamp:** 2026-10-02T18:56:50.315430+00:00
 
 ### EVAL-06 — No-SOP Match Case (Honest policy-backed recommendation refusal)
 - **Status:** `PASS`
@@ -80,7 +80,7 @@
 - **Actual:** Status: no_policy, Answer: No applicable Weatherwise SOP exists for cycling in Bhopal, India under current conditions...
 - **Weather Metrics:** temp=24.0°C, wind_speed=12.0 km/h, rain_prob=5.0%
 - **Matched SOP:** `None`
-- **Evidence:** No applicable Weatherwise SOP exists for cycling in Bhopal, India under current conditions, so no policy-backed safety recommendation can be provided. Current conditions: 24.0°C, winds 12.0 km/h, 5.0% rain probability, UV index 3.0. Source: Open-Meteo at 2026-10-02T14:48:37.366265+00:00 (Asia/Kolkata).
+- **Evidence:** No applicable Weatherwise SOP exists for cycling in Bhopal, India under current conditions, so no policy-backed safety recommendation can be provided. Current conditions: 24.0°C, winds 12.0 km/h, 5.0% rain probability, UV index 3.0. Source: Open-Meteo at 2026-10-02T18:56:56.533228+00:00 (Asia/Kolkata).
 
 ### EVAL-07 — Unreachable Weather API Case
 - **Status:** `PASS`
@@ -98,7 +98,7 @@
 - **Actual:** Status: matched, Matched SOP: WB-001
 - **Weather Metrics:** wind_speed=48.0 km/h (severe)
 - **Matched SOP:** `WB-001`
-- **Evidence:** [HIGH ADVISORY] Cycling in Bhopal, India. Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease. Current conditions: 26.0°C, winds 48.0 km/h, 10.0% rain probability, UV index 4.0. Policy: WB-001 - Crosswinds During Cycling. Source: Open-Meteo at 2026-10-02T14:48:35.168113+00:00 (Asia/Kolkata).
+- **Evidence:** [HIGH ADVISORY] Cycling in Bhopal, India. Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease. Current conditions: 26.0°C, winds 48.0 km/h, 10.0% rain probability, UV index 4.0. Policy: WB-001 - Crosswinds During Cycling. Source: Open-Meteo at 2026-10-02T18:56:50.248889+00:00 (Asia/Kolkata).
 
 ### EVAL-09 — Multiple-SOP Match Resolution (Severity/Priority tie-breaking)
 - **Status:** `PASS`

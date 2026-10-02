@@ -289,7 +289,7 @@ async def extract_intent(
         return local_result
 
     try:
-        model_name = os.getenv("GEMINI_INTENT_MODEL", "gemini-2.0-flash")
+        model_name = os.getenv("GEMINI_INTENT_MODEL", "gemini-3.8-flash")
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
         
         prompt = (

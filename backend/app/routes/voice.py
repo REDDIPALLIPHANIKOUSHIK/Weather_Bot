@@ -74,7 +74,7 @@ async def create_voice_session(req: VoiceSessionRequest | None = None):
             instructions=build_system_instruction(requested_lang),
         )
 
-    model = os.getenv("GEMINI_LIVE_MODEL", "gemini-2.0-flash")
+    model = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live")
     now = datetime.now(timezone.utc)
     expire_time = (now + timedelta(minutes=30)).isoformat().replace("+00:00", "Z")
     new_session_expire = (now + timedelta(minutes=2)).isoformat().replace("+00:00", "Z")

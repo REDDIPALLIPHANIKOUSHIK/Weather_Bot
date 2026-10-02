@@ -124,6 +124,9 @@ The production `/api/chat` endpoint executes directly through `run_advisory_grap
 
 ## SOP System: Externalized & Configuration-Driven
 
+**Canonical SOP source:**
+`backend/config/sops.yaml`
+
 All safety policies reside in the single canonical external YAML configuration file ([backend/config/sops.yaml](backend/config/sops.yaml)). **Control flow contains zero hardcoded SOP IDs**. Adding an 11th or 17th SOP requires only updating this YAML configuration file—no code modifications or graph redeployments are necessary.
 
 ### Structure of an SOP
@@ -368,7 +371,7 @@ Provisions short-lived ephemeral credentials for Gemini Live WebSocket connectio
 ```json
 {
   "mode": "gemini_live",
-  "model": "gemini-2.0-flash",
+  "model": "gemini-3.8-live",
   "ws_url": "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=...",
   "language": "te-IN",
   "instructions": "You are Weatherwise..."
@@ -379,7 +382,7 @@ Provisions short-lived ephemeral credentials for Gemini Live WebSocket connectio
 
 ## Gemini Live Voice & Security
 
-Weatherwise provides real-time bidirectional voice using Google's official Gemini Live WebSocket API (`gemini-2.0-flash`):
+Weatherwise provides real-time bidirectional voice using Google's official Gemini Live WebSocket API (`gemini-3.8-live`):
 1. **Zero Client-Side Key Exposure**: The browser never receives `GEMINI_API_KEY`. Ephemeral access tokens are securely minted server-side via `POST /api/voice/session` with short expiration windows.
 2. **Audio Streaming**: Captures 16kHz PCM audio from the user's microphone and streams binary frames over the WebSocket connection. Incoming 24kHz PCM chunks are decoded and played via Web Audio API.
 3. **Tool Calling Integration**: Gemini is constrained with the `get_weather_advisory` tool schema. When an outdoor query is spoken, Gemini executes the tool, which routes through the **exact same LangGraph SOP pipeline** as typed chat.
@@ -503,8 +506,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | Variable | Location | Required | Default | Description |
 |:---|:---:|:---:|:---:|:---|
 | `GEMINI_API_KEY` | Backend | Optional | None | Google Gemini API key for Gemini Live voice and structured intent extraction |
-| `GEMINI_LIVE_MODEL` | Backend | Optional | `gemini-2.0-flash` | Model ID for Gemini Live WebSocket session |
-| `GEMINI_INTENT_MODEL` | Backend | Optional | `gemini-2.0-flash` | Model ID for structured intent extraction and advisory translation |
+| `GEMINI_LIVE_MODEL` | Backend | Optional | `gemini-3.8-live` | Model ID for Gemini Live WebSocket session |
+| `GEMINI_INTENT_MODEL` | Backend | Optional | `gemini-3.8-flash` | Model ID for structured intent extraction and advisory translation |
 | `CORS_ORIGINS` | Backend | Optional | `*` | Comma-separated list of allowed CORS origins |
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Frontend | Optional | None | Google Maps Geocoding API key for reverse geocoding fallback |
 

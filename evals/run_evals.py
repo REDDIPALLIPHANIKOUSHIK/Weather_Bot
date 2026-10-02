@@ -224,7 +224,15 @@ async def run_evaluations() -> list[dict[str, Any]]:
                     message=query_msg,
                     weather_service=live_ws,
                 )
-                # Verify that the full LangGraph response satisfies all severe PASS criteria
+                # Verify that the full LangGraph response satisfies all severe PASS criteria:
+                # status == matched, policy exists, severity == HIGH or CRITICAL,
+                # policy ID actually matched by live data, response contains live weather facts,
+                # source is Open-Meteo, response contains SOP citation
+                temp_fact_in_ans = (
+                    full_resp.weather.temperature_2m is None
+                    or f"{full_resp.weather.temperature_2m}°C" in full_resp.answer
+                    or f"{round(full_resp.weather.temperature_2m, 1)}°C" in full_resp.answer
+                )
                 if (
                     full_resp.status == "matched"
                     and full_resp.policy is not None
@@ -233,6 +241,8 @@ async def run_evaluations() -> list[dict[str, Any]]:
                     and full_resp.weather is not None
                     and full_resp.weather.source == "Open-Meteo"
                     and pol_check.sop_id in full_resp.answer
+                    and "Open-Meteo" in full_resp.answer
+                    and temp_fact_in_ans
                 ):
                     live_severe_detected = True
                     matched_candidate = (city_cand, act_cand, query_msg, pol_check, w)
