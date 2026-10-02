@@ -60,31 +60,57 @@ class OpenMeteo:
     async def forecast(self, location: Location, time_reference: str = "today") -> WeatherFacts:
         data = await self._get("https://api.open-meteo.com/v1/forecast", {
             "latitude": location.latitude, "longitude": location.longitude,
+            "current": "temperature_2m,wind_speed_10m,precipitation,weather_code",
             "hourly": "temperature_2m,wind_speed_10m,precipitation,precipitation_probability,uv_index,weather_code",
             "forecast_days": 2, "timezone": "auto",
         })
-        hourly = data.get("hourly") or {}
-        times = hourly.get("time") or []
         zone = data.get("timezone", "UTC")
-        now = datetime.now(ZoneInfo(zone))
-        target = now
-        if time_reference == "tomorrow": target = (now + timedelta(days=1)).replace(hour=12, minute=0)
-        elif time_reference in {"this evening", "tonight"}: target = now.replace(hour=21 if time_reference == "tonight" else 18, minute=0)
-        elif time_reference == "this afternoon": target = now.replace(hour=15, minute=0)
-        # Pick the nearest forecast hour; only actual API values are returned.
+        current = data.get("current")
+        if time_reference in {"now", "today"} and isinstance(current, dict):
+            current_time = str(current.get("time", ""))
+            hourly = data.get("hourly") or {}
+            times = hourly.get("time") or []
+            try:
+                current_dt = datetime.fromisoformat(current_time) if current_time else datetime.now(ZoneInfo(zone))
+                index = min(range(len(times)), key=lambda i: abs(datetime.fromisoformat(times[i]).replace(tzinfo=ZoneInfo(zone)).timestamp()-current_dt.replace(tzinfo=ZoneInfo(zone)).timestamp())) if times else None
+            except (ValueError,KeyError,TypeError) as exc:
+                raise UpstreamError("Weather service returned an invalid current timestamp") from exc
+            def hourly_at(key: str):
+                values=hourly.get(key) or []
+                return values[index] if index is not None and index<len(values) else None
+            try:
+                return WeatherFacts(
+                    temperature_2m=current.get("temperature_2m"),
+                    wind_speed_10m=current.get("wind_speed_10m"),
+                    precipitation=current.get("precipitation"),
+                    precipitation_probability=hourly_at("precipitation_probability"),
+                    uv_index=hourly_at("uv_index"),
+                    weather_code=current.get("weather_code"),
+                    observed_at=current_time,
+                    timezone=zone,
+                )
+            except ValidationError as exc:
+                raise UpstreamError("Weather service returned invalid current weather facts") from exc
+
+        hourly=data.get("hourly") or {}
+        times=hourly.get("time") or []
+        now=datetime.now(ZoneInfo(zone))
+        target=now
+        if time_reference=="tomorrow": target=(now+timedelta(days=1)).replace(hour=12,minute=0)
+        elif time_reference in {"this evening","tonight"}: target=now.replace(hour=21 if time_reference=="tonight" else 18,minute=0)
+        elif time_reference=="this afternoon": target=now.replace(hour=15,minute=0)
         try:
-            index = min(range(len(times)), key=lambda i: abs(datetime.fromisoformat(times[i]).replace(tzinfo=ZoneInfo(zone)).timestamp() - target.timestamp())) if times else 0
-        except (ValueError, KeyError) as exc:
+            index=min(range(len(times)),key=lambda i:abs(datetime.fromisoformat(times[i]).replace(tzinfo=ZoneInfo(zone)).timestamp()-target.timestamp())) if times else 0
+        except (ValueError,KeyError) as exc:
             raise UpstreamError("Weather service returned an invalid forecast") from exc
         def at(key):
-            values = hourly.get(key) or []
-            return values[index] if index < len(values) else None
+            values=hourly.get(key) or []
+            return values[index] if index<len(values) else None
         try:
-            return WeatherFacts(temperature_2m=at("temperature_2m"), wind_speed_10m=at("wind_speed_10m"),
-                precipitation=at("precipitation"), weather_code=at("weather_code"),
-                precipitation_probability=at("precipitation_probability"), uv_index=at("uv_index"), observed_at=times[index] if times else "", timezone=zone)
+            return WeatherFacts(temperature_2m=at("temperature_2m"),wind_speed_10m=at("wind_speed_10m"),precipitation=at("precipitation"),precipitation_probability=at("precipitation_probability"),uv_index=at("uv_index"),weather_code=at("weather_code"),observed_at=times[index] if times else "",timezone=zone)
         except ValidationError as exc:
             raise UpstreamError("Weather service returned invalid weather facts") from exc
+
 
 def load_sops(path: Path | None = None) -> list[dict[str, Any]]:
     # Vercel builds the backend as an independent service, so its bundle keeps
