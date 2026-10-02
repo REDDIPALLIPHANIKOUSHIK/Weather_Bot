@@ -2,15 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 import { MapPin, Thermometer, Wind, CloudRain, Sun, Compass } from "lucide-react";
-import { CurrentLocation, WeatherFacts } from "../lib/types";
+import { CurrentLocation, VoiceLanguage, WeatherFacts } from "../lib/types";
 
 interface CurrentLocationWidgetProps {
   currentLocation: CurrentLocation | null;
+  language?: VoiceLanguage;
   onActivitySelect: (query: string) => void;
 }
 
 export const CurrentLocationWidget: React.FC<CurrentLocationWidgetProps> = ({
   currentLocation,
+  language = "en-IN",
   onActivitySelect,
 }) => {
   const [weather, setWeather] = useState<WeatherFacts | null>(null);
@@ -116,38 +118,118 @@ export const CurrentLocationWidget: React.FC<CurrentLocationWidgetProps> = ({
       {/* Quick Location Safety Actions */}
       <div className="mt-3 pt-3 border-t border-slate-800/60 flex flex-wrap items-center gap-2 text-xs">
         <span className="text-[11px] text-cyan-300 font-medium flex items-center gap-1">
-          <Compass className="w-3 h-3 text-cyan-400" /> Check safety here:
+          <Compass className="w-3 h-3 text-cyan-400" />
+          {language === "te-IN"
+            ? "ఇక్కడి భద్రతను తనిఖీ చేయండి:"
+            : language === "hi-IN"
+            ? "यहाँ सुरक्षा की जांच करें:"
+            : language === "ta-IN"
+            ? "இங்கே பாதுகாப்பை சரிபார்க்கவும்:"
+            : language === "kn-IN"
+            ? "ಇಲ್ಲಿ ಸುರಕ್ಷತೆಯನ್ನು ಪರಿಶೀಲಿಸಿ:"
+            : "Check safety here:"}
         </span>
-        <button
-          onClick={() => onActivitySelect("Can I take my child to the park in my location now?")}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
-        >
-          Children&apos;s Park Visit
-        </button>
-        <button
-          onClick={() => onActivitySelect("Is it safe to cycle here today?")}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
-        >
-          Cycling
-        </button>
-        <button
-          onClick={() => onActivitySelect("Is it safe to go for a walk here now?")}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
-        >
-          Walking
-        </button>
-        <button
-          onClick={() => onActivitySelect("Can I go running here this evening?")}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
-        >
-          Running
-        </button>
-        <button
-          onClick={() => onActivitySelect("Is it a good time for a picnic here today?")}
-          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
-        >
-          Picnic
-        </button>
+
+        {language === "te-IN" ? (
+          <>
+            <button
+              onClick={() => onActivitySelect("ఇక్కడ ఈరోజు నడవడానికి వీలుగా ఉందా?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              నడక / వాకింగ్
+            </button>
+            <button
+              onClick={() => onActivitySelect("ఇక్కడ ఈరోజు సైకిల్ తొక్కడం సురక్షితమేనా?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              సైక్లింగ్
+            </button>
+            <button
+              onClick={() => onActivitySelect("ఈ సమయంలో ఇక్కడ పిల్లలను పార్కుకు తీసుకెళ్లవచ్చా?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              పిల్లల పార్క్
+            </button>
+            <button
+              onClick={() => onActivitySelect("ఈ సాయంత్రం ఇక్కడ రన్నింగ్ చేయవచ్చా?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              రన్నింగ్
+            </button>
+            <button
+              onClick={() => onActivitySelect("ఈరోజు ఇక్కడ పిక్నిక్ చేసుకోవడానికి మంచి రోజా?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              పిక్నిక్
+            </button>
+          </>
+        ) : language === "hi-IN" ? (
+          <>
+            <button
+              onClick={() => onActivitySelect("क्या आज यहाँ टहलना सुरक्षित है?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              टहलना
+            </button>
+            <button
+              onClick={() => onActivitySelect("क्या आज यहाँ साइकिल चलाना सुरक्षित है?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              साइकिलिंग
+            </button>
+            <button
+              onClick={() => onActivitySelect("क्या मैं अभी यहाँ बच्चे को पार्क ले जा सकता हूँ?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              बच्चों का पार्क
+            </button>
+            <button
+              onClick={() => onActivitySelect("क्या मैं आज शाम यहाँ दौड़ने जा सकता हूँ?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              दौड़ना
+            </button>
+            <button
+              onClick={() => onActivitySelect("क्या आज यहाँ पिकनिक के लिए अच्छा दिन है?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              पिकनिक
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => onActivitySelect("Can I take my child to the park in my location now?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              Children&apos;s Park Visit
+            </button>
+            <button
+              onClick={() => onActivitySelect("Is it safe to cycle here today?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              Cycling
+            </button>
+            <button
+              onClick={() => onActivitySelect("Is it safe to go for a walk here now?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              Walking
+            </button>
+            <button
+              onClick={() => onActivitySelect("Can I go running here this evening?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              Running
+            </button>
+            <button
+              onClick={() => onActivitySelect("Is it a good time for a picnic here today?")}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition-colors cursor-pointer"
+            >
+              Picnic
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

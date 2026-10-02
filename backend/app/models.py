@@ -1,13 +1,19 @@
 from typing import Any, Literal
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ConfigDict, AliasChoices, field_validator
 
 
 class CurrentLocation(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     latitude: float = Field(ge=-90.0, le=90.0)
     longitude: float = Field(ge=-180.0, le=180.0)
     accuracy: float | None = Field(default=None, ge=0.0, le=100000.0)
     timestamp: str | None = Field(default=None, max_length=100)
-    city_name: str | None = Field(default=None, max_length=200)
+    city_name: str | None = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("city_name", "cityName"),
+    )
 
 
 class Location(BaseModel):
@@ -56,6 +62,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=1000)
     current_location: CurrentLocation | None = None
+    language: str = Field(default="en-IN")
 
     @field_validator("message")
     @classmethod

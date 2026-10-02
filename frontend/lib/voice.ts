@@ -298,6 +298,7 @@ export class WeatherwiseVoiceEngine {
                 session_id: this.sessionId,
                 message: queryMessage,
                 current_location: currentCoordinates,
+                language: this.language,
               }),
             });
 
@@ -424,6 +425,7 @@ export class WeatherwiseVoiceEngine {
             session_id: this.sessionId,
             message: queryText,
             current_location: currentCoordinates,
+            language: this.language,
           }),
         });
 

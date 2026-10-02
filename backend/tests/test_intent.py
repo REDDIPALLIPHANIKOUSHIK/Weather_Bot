@@ -41,3 +41,20 @@ def test_unsupported_activity():
     intent = parse_intent_locally("Is it good weather for scuba diving in Goa?")
     assert intent.activity is None
     assert intent.category is None
+
+
+def test_telugu_inflected_verbs_and_cities():
+    # Walking inflected form
+    intent_walk = parse_intent_locally("నేడు ఈరోజు నడవడానికి వీలుగా ఉందా?")
+    assert intent_walk.activity == "walking"
+
+    # Cycling with Telugu city locative suffix "భోపాల్‌లో"
+    intent_cycle = parse_intent_locally("భోపాల్‌లో ఈరోజు సైకిల్ తొక్కడం సురక్షితమేనా?")
+    assert intent_cycle.activity == "cycling"
+    assert intent_cycle.location_text == "భోపాల్"
+
+    # Walking + here
+    intent_here_walk = parse_intent_locally("ఇక్కడ ఈరోజు నడవడానికి సురక్షితమేనా?")
+    assert intent_here_walk.activity == "walking"
+    assert intent_here_walk.use_current_location is True
+

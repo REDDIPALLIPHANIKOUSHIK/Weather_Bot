@@ -16,5 +16,6 @@ async def chat_endpoint(request: ChatRequest):
         session_id=request.session_id,
         message=request.message,
         current_location=request.current_location,
+        language=request.language,
     )
     return response

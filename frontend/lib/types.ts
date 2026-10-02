@@ -16,6 +16,7 @@ export interface CurrentLocation {
   accuracy?: number | null;
   timestamp?: string | null;
   cityName?: string | null;
+  city_name?: string | null;
 }
 
 export interface Location {

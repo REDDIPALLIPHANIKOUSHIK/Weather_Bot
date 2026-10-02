@@ -16,7 +16,7 @@ import {
   VoiceStatus,
 } from "../lib/types";
 import { WeatherwiseVoiceEngine } from "../lib/voice";
-import { reverseGeocodeCoordinates } from "../lib/reverse-geo";
+import { reverseGeocodeCoordinates, detectCurrentLocation } from "../lib/reverse-geo";
 
 export default function Home() {
   // Session ID for contextual follow-ups
@@ -53,7 +53,66 @@ export default function Home() {
     chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Request browser geolocation
+  // Automatically detect location on load (network/IP + browser GPS)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function autoInitLocation() {
+      // 1. First fetch network/IP location immediately so site shows weather right away
+      try {
+        const fastLoc = await detectCurrentLocation();
+        if (isMounted && fastLoc) {
+          setCurrentLocation(fastLoc);
+          setLocationStatus("granted");
+        }
+      } catch (err) {
+        console.warn("Initial network location error:", err);
+      }
+
+      // 2. Concurrently request high-precision GPS if supported
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            if (!isMounted) return;
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const gpsLoc: CurrentLocation = {
+              latitude: lat,
+              longitude: lon,
+              accuracy: pos.coords.accuracy,
+              timestamp: new Date(pos.timestamp).toISOString(),
+              cityName: null,
+              city_name: null,
+            };
+            setCurrentLocation(gpsLoc);
+            setLocationStatus("granted");
+
+            try {
+              const name = await reverseGeocodeCoordinates(lat, lon);
+              if (isMounted) {
+                setCurrentLocation((prev) =>
+                  prev ? { ...prev, cityName: name, city_name: name } : prev
+                );
+              }
+            } catch (err) {
+              console.warn("Reverse geocode failed:", err);
+            }
+          },
+          (err) => {
+            console.info("Browser GPS response:", err.message);
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+      }
+    }
+
+    autoInitLocation();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Request browser geolocation on user click
   const handleRequestLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationStatus("unavailable");
@@ -74,6 +133,7 @@ export default function Home() {
           accuracy: position.coords.accuracy,
           timestamp: new Date(position.timestamp).toISOString(),
           cityName: null,
+          city_name: null,
         };
         setCurrentLocation(initialCoords);
         setLocationStatus("granted");
@@ -82,7 +142,7 @@ export default function Home() {
         try {
           const resolvedName = await reverseGeocodeCoordinates(lat, lon);
           setCurrentLocation((prev) =>
-            prev ? { ...prev, cityName: resolvedName } : prev
+            prev ? { ...prev, cityName: resolvedName, city_name: resolvedName } : prev
           );
         } catch (e) {
           console.warn("Could not reverse-geocode:", e);
@@ -140,6 +200,7 @@ export default function Home() {
           session_id: sessionId,
           message: query,
           current_location: currentLocation,
+          language: language,
         }),
       });
 
@@ -266,6 +327,7 @@ export default function Home() {
         {/* Live Weather Widget for Detected Current Location */}
         <CurrentLocationWidget
           currentLocation={currentLocation}
+          language={language}
           onActivitySelect={(q) => handleSendMessage(q)}
         />
 
@@ -369,7 +431,17 @@ export default function Home() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder='Ask a weather question (e.g., "Is it safe to cycle in Bhopal today?" or "Can I walk here?")...'
+              placeholder={
+                language === "te-IN"
+                  ? 'వాతావరణ ప్రశ్న అడగండి (ఉదా: "భోపాల్‌లో సైకిల్ తొక్కడం సురక్షితమేనా?" లేదా "ఇక్కడ నడవవచ్చా?")...'
+                  : language === "hi-IN"
+                  ? 'मौसम संबंधी प्रश्न पूछें (उदा: "क्या आज भोपाल में साइकिल चलाना सुरक्षित है?" या "क्या मैं यहाँ टहल सकता हूँ?")...'
+                  : language === "ta-IN"
+                  ? 'வானிலை கேள்வியைக் கேளுங்கள் (எ.கா. "இன்று போபாலில் சைக்கிள் ஓட்டலாமா?")...'
+                  : language === "kn-IN"
+                  ? 'ಹವಾಮಾನ ಪ್ರಶ್ನೆಯನ್ನು ಕೇಳಿ (ಉದಾ: "ಭೋಪಾಲ್‌ನಲ್ಲಿ ಇಂದು ಸೈಕ್ಲಿಂಗ್ ಸುರಕ್ಷಿತವೇ?")...'
+                  : 'Ask a weather question (e.g., "Is it safe to cycle in Bhopal today?" or "Can I walk here?")...'
+              }
               aria-label="Outdoor weather advisory question"
               disabled={isLoading}
               className="flex-1 bg-transparent px-2 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none disabled:opacity-50"

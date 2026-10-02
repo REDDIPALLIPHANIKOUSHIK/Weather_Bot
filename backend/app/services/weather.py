@@ -166,7 +166,7 @@ class WeatherService:
         if not results or not isinstance(results, list):
             return None
 
-        # Check for multiple distinct countries among exact name matches
+        # Open-Meteo ranks search results by relevance and population descending.
         exact_matches = [
             r for r in results
             if isinstance(r, dict) and str(r.get("name", "")).strip().casefold() == normalized.casefold()
@@ -176,10 +176,19 @@ class WeatherService:
             for r in exact_matches
             if r.get("country")
         })
-        if len(distinct_countries) > 1:
-            raise AmbiguousLocationError(", ".join(distinct_countries))
 
         item = results[0]
+        if len(distinct_countries) > 1:
+            india_match = next((r for r in exact_matches if str(r.get("country")).lower() == "india"), None)
+            pop0 = exact_matches[0].get("population") or 0
+            pop1 = exact_matches[1].get("population") or 0 if len(exact_matches) > 1 else 0
+
+            if india_match and (india_match.get("population") or 0) > 5000:
+                item = india_match
+            elif pop0 > 50000 and (pop1 == 0 or pop0 >= pop1 * 2):
+                item = exact_matches[0]
+            elif pop0 == pop1:
+                raise AmbiguousLocationError(", ".join(distinct_countries))
         try:
             loc = Location(
                 name=str(item["name"]),
