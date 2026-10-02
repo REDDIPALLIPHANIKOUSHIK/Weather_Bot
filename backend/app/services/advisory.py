@@ -181,7 +181,23 @@ class AdvisoryCoordinator:
         trace.append(f"Policy evaluation outcome: {policy_result.outcome} (matched: {policy_result.sop_id or 'none'})")
 
         # 7. Compose Grounded Response
-        loc_display = target_location.name if not target_location.country else f"{target_location.name}, {target_location.country}"
+        is_current_loc = target_location.name.lower() == "your current location"
+        loc_display = "your current location" if is_current_loc else (
+            target_location.name if not target_location.country else f"{target_location.name}, {target_location.country}"
+        )
+        activity_label = {
+            "park_visit": "a children's park visit",
+            "pet_walking": "walking a pet",
+            "elderly_outdoor": "an elderly outdoor visit",
+            "picnic": "a picnic",
+            "commuting": "commuting",
+            "outdoor_leisure": "outdoor leisure",
+            "cycling": "cycling",
+            "running": "running",
+            "hiking": "hiking",
+            "walking": "walking",
+        }.get(intent.activity, intent.activity.replace("_", " "))
+
         summary_str = format_weather_summary(weather_facts, intent.time_reference)
         source_citation = f"Source: Open-Meteo at {weather_facts.observed_at} ({weather_facts.timezone})"
 
@@ -189,7 +205,7 @@ class AdvisoryCoordinator:
             trace.append("Required weather fields for policy evaluation were missing")
             return ChatResponse(
                 answer=(
-                    f"A weather metric required to evaluate safety for {intent.activity} in {loc_display} "
+                    f"A weather metric required to evaluate safety for {activity_label} in {loc_display} "
                     f"was not provided by the weather feed. To ensure your safety, no ungrounded recommendation can be made."
                 ),
                 status="insufficient_data",
@@ -202,15 +218,15 @@ class AdvisoryCoordinator:
         if policy_result.outcome == "no_match":
             trace.append("No restrictive SOP triggered for current weather")
             answer_text = (
-                f"Standard conditions for {intent.activity} in {loc_display}. "
-                f"No adverse safety alerts were triggered by written policies. "
+                f"Standard conditions for {activity_label} in {loc_display}. "
+                f"Conditions are within normal limits and no adverse safety policies were triggered. "
                 f"{summary_str}. {source_citation}."
             )
             status_str = "no_policy"
         else:
             guidance_text = " ".join(policy_result.guidance)
             answer_text = (
-                f"[{policy_result.severity} ADVISORY] {intent.activity.replace('_', ' ').title()} in {loc_display}. "
+                f"[{policy_result.severity} ADVISORY] {activity_label.title()} in {loc_display}. "
                 f"{guidance_text} "
                 f"{summary_str}. "
                 f"Policy: {policy_result.sop_id} - {policy_result.title}. "
