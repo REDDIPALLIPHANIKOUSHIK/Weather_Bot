@@ -116,9 +116,19 @@ class WeatherService:
         self._cache_ttl_seconds = 180  # 3 minutes
 
     async def get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
+        if not self._owns_client and self._client is not None and not self._client.is_closed:
+            return self._client
+
+        import asyncio
+        curr_loop = asyncio.get_running_loop()
+        if (
+            self._client is None
+            or self._client.is_closed
+            or getattr(self, "_bound_loop", None) != curr_loop
+        ):
             self._client = httpx.AsyncClient(timeout=9.0)
             self._owns_client = True
+            self._bound_loop = curr_loop
         return self._client
 
     async def close(self):

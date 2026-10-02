@@ -43,6 +43,48 @@ def evaluate_condition(condition: dict[str, Any], facts: dict[str, Any]) -> tupl
         passed, detail = evaluate_condition(condition["not"], facts)
         return not passed, f"not({detail})"
 
+    if "fuzzy_score" in condition:
+        cfg = condition["fuzzy_score"]
+        factors = cfg.get("factors", [])
+        threshold = float(cfg.get("threshold", 0.5))
+        op_name = cfg.get("operator", "gte")
+
+        total_weight = 0.0
+        weighted_score = 0.0
+        factor_details = []
+
+        for f in factors:
+            f_name = f.get("field")
+            actual = facts.get(f_name)
+            weight = float(f.get("weight", 1.0))
+            total_weight += weight
+
+            if actual is None:
+                return False, f"fuzzy factor '{f_name}' unavailable in facts"
+
+            opt_min = float(f.get("optimal_min", actual))
+            opt_max = float(f.get("optimal_max", actual))
+            tolerance = float(f.get("tolerance", 10.0))
+
+            # Triangular / trapezoidal fuzzy membership function
+            if opt_min <= actual <= opt_max:
+                factor_score = 1.0
+            elif actual < opt_min:
+                diff = opt_min - actual
+                factor_score = max(0.0, 1.0 - (diff / tolerance))
+            else:
+                diff = actual - opt_max
+                factor_score = max(0.0, 1.0 - (diff / tolerance))
+
+            weighted_score += factor_score * weight
+            factor_details.append(f"{f_name}={actual}(score={factor_score:.2f})")
+
+        final_score = (weighted_score / total_weight) if total_weight > 0 else 0.0
+        op_func = OPERATORS.get(op_name, py_op.ge)
+        passed = bool(op_func(final_score, threshold))
+        detail = f"fuzzy_score({final_score:.2f} {op_name} {threshold}, factors: [{', '.join(factor_details)}]) => {passed}"
+        return passed, detail
+
     field = condition.get("field")
     op_name = condition.get("operator")
     target_value = condition.get("value")

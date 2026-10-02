@@ -20,6 +20,10 @@ def extract_required_fields(condition: dict[str, Any]) -> set[str]:
                     fields.update(extract_required_fields(child))
     if "not" in condition and isinstance(condition["not"], dict):
         fields.update(extract_required_fields(condition["not"]))
+    if "fuzzy_score" in condition and isinstance(condition["fuzzy_score"], dict):
+        for factor in condition["fuzzy_score"].get("factors", []):
+            if isinstance(factor, dict) and "field" in factor:
+                fields.add(str(factor["field"]))
     return fields
 
 

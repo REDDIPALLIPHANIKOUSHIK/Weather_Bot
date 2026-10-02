@@ -64,6 +64,7 @@ SUPPORTED_ACTIVITIES = {
     "pet_walking": (
         "leisure",
         [
+            "take my dog for a walk", "take dog for a walk", "dog for a walk", "walk with dog", "walking a dog",
             "pet walking", "dog walking", "walk my dog", "walk the dog", "pet walk", "dog walk", "walking the dog",
             # Indic
             "కుక్కను నడపడం", "పెట్ వాకింగ్",

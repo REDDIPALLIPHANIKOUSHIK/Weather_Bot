@@ -55,7 +55,7 @@ sops:
   - id: WB-005
     title: Extreme Heat for Outdoor Activity
     category: vulnerable_groups
-    activities: [running, hiking, walking, park_visit, picnic, outdoor_leisure]
+    activities: [cycling, running, hiking, walking, park_visit, picnic, outdoor_leisure]
     severity: CRITICAL
     priority: 100
     conditions:
@@ -236,3 +236,33 @@ sops:
       value: 32
     guidance:
       - "Warm conditions may increase heat strain for older adults; postpone the outdoor activity until cooler conditions."
+
+  - id: WB-016
+    title: Outdoor Picnic and Leisure Fuzzy Comfort Index
+    category: leisure
+    activities: [picnic, outdoor_leisure]
+    severity: LOW
+    priority: 25
+    conditions:
+      fuzzy_score:
+        threshold: 0.65
+        operator: gte
+        factors:
+          - field: temperature_2m
+            optimal_min: 18.0
+            optimal_max: 27.0
+            tolerance: 8.0
+            weight: 0.4
+          - field: wind_speed_10m
+            optimal_min: 0.0
+            optimal_max: 18.0
+            tolerance: 12.0
+            weight: 0.3
+          - field: precipitation_probability
+            optimal_min: 0.0
+            optimal_max: 15.0
+            tolerance: 25.0
+            weight: 0.3
+    guidance:
+      - "Fuzzy comfort index indicates pleasant environmental conditions aligning well for picnic and leisure."
+
