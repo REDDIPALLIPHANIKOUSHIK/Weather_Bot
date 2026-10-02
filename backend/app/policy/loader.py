@@ -28,20 +28,16 @@ def extract_required_fields(condition: dict[str, Any]) -> set[str]:
 
 
 def get_default_sops_path() -> Path:
-    # Walk up from this file's location to locate config/sops.yaml
+    # Single canonical SOP location: backend/config/sops.yaml
     current = Path(__file__).resolve().parent
-    candidates = [
-        current.parent.parent / "config" / "sops.yaml",          # backend/config/sops.yaml
-        current.parent.parent.parent / "config" / "sops.yaml",   # repo_root/config/sops.yaml
-    ]
-    for cand in candidates:
-        if cand.is_file():
-            return cand
-    # Fallback to current working directory relative
-    cwd_cand = Path.cwd() / "config" / "sops.yaml"
-    if cwd_cand.is_file():
-        return cwd_cand
-    return candidates[0]
+    canonical_path = current.parent.parent / "config" / "sops.yaml"  # backend/config/sops.yaml
+    if canonical_path.is_file():
+        return canonical_path
+    # Fallback when running from repo root
+    cwd_backend = Path.cwd() / "backend" / "config" / "sops.yaml"
+    if cwd_backend.is_file():
+        return cwd_backend
+    return canonical_path
 
 
 def load_sops(path: Path | None = None, reload: bool = False) -> list[SOPDefinition]:

@@ -91,7 +91,7 @@ When answering a user request, location resolution strictly follows this hierarc
 
 ## 4. Deterministic SOP Policy Engine
 
-SOPs are defined in machine-readable YAML (`config/sops.yaml`). Each SOP defines:
+SOPs are defined in machine-readable YAML (`backend/config/sops.yaml`). Each SOP defines:
 
 - `id`: Unique policy identifier (e.g. `WB-001`)
 - `title`: Human-readable policy name
