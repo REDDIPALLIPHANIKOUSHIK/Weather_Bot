@@ -12,27 +12,12 @@ class AdvisoryState(TypedDict,total=False):
 
 sessions:dict[str,dict[str,Any]]={}
 weather_service=OpenMeteo()
-ACTIVITIES={
-    "cycling":("cycling",["cycle","cycling","bike","biking","సైకిల్","సైక్లింగ్","साइकिल","साइक्लिंग","சைக்கிள்","சைக்கிளிங்","ಸೈಕಲ್","സൈക്കിൾ","सायकल","সাইকেল"]),
-    "running":("running",["run","running","jog","jogging","పరుగు","రన్నింగ్","दौड़","रनिंग","ஓட்டம்","ரன்னிங்","ಓಟ","ರನ್ನಿಂಗ್","ഓട്ടം","റണ്ണിംഗ്","धावणे","দৌড়"]),
-    "hiking":("hiking",["hike","hiking","trek","trekking","హైక్","ట్రెక్కింగ్","हाइक","ट्रेकिंग","ஹைக்கிங்","ட்ரெக்கிங்","ಹೈಕ್","ಟ್ರೆಕ್ಕಿಂಗ್","ഹൈക്കിംഗ്","ട്രെക്കിംഗ്","हायकिंग","হাইকিং"]),
-    "picnic":("picnic",["picnic","పిక్నిక్","पिकनिक","பிக்னிக்","ಪಿಕ್ನಿಕ್","പിക്നിക്","पिकनिक","পিকনিক"]),
-    "pet_walking":("pet walking",["walk the dog","walk my dog","dog walk","pet walk","కుక్కను నడక","कुत्ते को घुमाना","நாயை நடைப்பயிற்சி","ನಾಯಿಯನ್ನು ನಡೆಯಿಸುವುದು","നായയെ നടത്തുക","कुत्र्याला फिरवणे","কুকুর হাঁটানো"]),
-    "elderly_outdoor":("elderly outdoor activity",["elderly","senior","older parent","వృద్ధులు","సీనియర్","बुज़ुर्ग","वरिष्ठ","முதியோர்","ಹಿರಿಯರು","വയോജനങ്ങൾ","ज्येष्ठ","বয়স্ক"]),
-    "walking":("walking",["walk","walking","నడక","నడవ","चलना","पैदल","நடை","நடக்க","ನಡಿಗೆ","ನಡೆಯಲು","നടക്കുക","चालणे","पायी","হাঁটা","হাঁটতে"]),
-    "commuting":("commuting",["commute","commuting","ride to work","కమ్యూట్","ఆఫీసుకి వెళ్లడం","कम्यूट","ऑफिस जाना","கம்யூட்","வேலைக்கு செல்வது","ಕಮ್ಯೂಟ್","ಕೆಲಸಕ್ಕೆ ಹೋಗುವುದು","കമ്യൂട്ട്","ജോലിക്ക് പോകുക","कम्यूट","कामावर जाणे","কমিউট"]),
-    "park_visit":("park visit",["park","playground","పార్క్","ప్లేగ్రౌండ్","पार्क","खेल का मैदान","பூங்கா","பார்க்","ಪಾರ್ಕ್","ಆಟದ ಮೈದಾನ","പാർക്ക്","കളിസ്ഥലം","पार्क","खेळाचे मैदान","পার্ক","খেলার মাঠ"]),
-    "outdoor_leisure":("outdoor leisure",["outdoor","leisure","garden","బయట","ఔట్‌డోర్","बाहर","आउटडोर","வெளியில்","வெளிப்புற","ಹೊರಗೆ","ಹೊರಾಂಗಣ","പുറത്ത്","ഔട്ട്ഡോർ","बाहेर","मैदानी","বাইরে","আউটডোর"]),
-}
+ACTIVITIES={"cycling":("cycling",["cycle","cycling","bike","biking"]),"running":("running",["run","running","jog","jogging"]),"hiking":("hiking",["hike","hiking","trek","trekking"]),"picnic":("picnic",["picnic"]),"pet_walking":("pet walking",["walk the dog","walk my dog","dog walk","pet walk"]),"elderly_outdoor":("elderly outdoor activity",["elderly","senior","older parent"]),"walking":("walking",["walk","walking"]),"commuting":("commuting",["commute","commuting","ride to work"]),"park_visit":("park visit",["park","playground"]),"outdoor_leisure":("outdoor leisure",["outdoor","leisure","garden"])}
 
 async def understand(state:AdvisoryState):
     text=state["message"].lower();known=sessions.get(state["session_id"],{});current=state.get("current_location") or known.get("current_location")
-    m=re.search(
-        r"(?:\b(?:in|near|around|at)\s+([\w .'-]{2,60}?)(?=\s+(?:today|tomorrow|this|on|during|right|$)|[?.!,]|$))"
-        r"|(?:\b([\u0C00-\u0C7F\u0C80-\u0CFF\u0900-\u097F\u0B80-\u0BFF\u0980-\u09FF\u0D00-\u0D7F\u0A80-\u0AFF\u0C00-\u0C7F]{2,40})\s+(?:లో|ನಲ್ಲಿ|मध्ये|এ|मध्ये|இல்|ൽ))",
-        state["message"],re.I
-    )
-    explicit=m.group(1).strip() if m and m.group(1) else (m.group(2).strip() if m and m.group(2) else None)
+    m=re.search(r"\b(?:in|near|around|at)\s+([\w .'-]{2,60}?)(?=\s+(?:today|tomorrow|this|on|during|right|$)|[?.!,]|$)",state["message"],re.I)
+    explicit=m.group(1).strip() if m else None
     try: structured=await extract_intent(state["message"],known)
     except RuntimeError:
         return {"status":"intent_unavailable","answer":"I couldn't reliably understand that request, so I didn't check or infer any weather advice. Please try a simpler activity and city question.","trace":state.get("trace",[])+["understand_intent: structured extraction failed validation"]}
