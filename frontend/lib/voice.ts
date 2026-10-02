@@ -108,7 +108,7 @@ export class GeminiLiveVoice{
    this.recognition.onerror=(e:any)=>{if(e.error!=="aborted")this.cb.onStatus?.("error",`Voice fallback: ${e.error}`)};
    this.recognition.onresult=(e:any)=>{for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(!e.results[i].isFinal){this.cb.onInputTranscript?.(t,true);continue;}this.lastInput=t;this.cb.onInputTranscript?.(t,false);void this.fallbackTurn(t)}}};
    this.recognition.start();
-   this.cb.onStatus?.("listening","Browser voice mode (multilingual fallback)");
+   this.cb.onStatus?.("listening",`Browser voice mode · ${LANG_NAMES[this.lang]} · Gemini fallback`);
  }
  private stopFallback(){this.fallbackRunning=false;try{this.recognition?.stop()}catch{}this.recognition=null;if(typeof speechSynthesis!=="undefined")speechSynthesis.cancel();this.fallback=false;this.fallbackSpeaking=false}
  private async fallbackTurn(raw:string){
@@ -116,7 +116,7 @@ export class GeminiLiveVoice{
    this.fallbackSpeaking=true;this.cb.onStatus?.("connecting");
    const activity=detectActivity(raw,this.lang)||detectActivity(raw,"en-IN");
    const current=this.cb.getCurrentLocation?.()??null;
-   const query=activity? `Is it safe to do ${ACTIVITY_LABEL["en-IN"][activity]||activity} here today?`:raw;
+   const query=raw;
    try{
      const r=await fetch(this.api.replace(/\/$/,"")+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session_id:this.session,message:query,current_location:current})});
      const data=await r.json();const spoken=localizeAdvisory({...data,activity,location:data.location},this.lang);
