@@ -299,19 +299,16 @@ If `GEMINI_API_KEY` is not configured or the WebSocket connection drops, the fro
 ## 12. API Documentation
 
 ### `GET /health`
-Returns service status, compiled engine identity, and loaded SOP count.
+Returns health check status and service information.
 ```bash
 curl -X GET "http://localhost:8000/health"
 ```
 **Response (200 OK)**:
 ```json
 {
-  "status": "healthy",
-  "service": "weatherwise-backend",
-  "engine": "LangGraph StateGraph",
-  "version": "1.0.0",
-  "sops_loaded": 16,
-  "gemini_enabled": false
+  "status": "ok",
+  "service": "Weatherwise",
+  "version": "1.0.0"
 }
 ```
 
@@ -414,14 +411,15 @@ curl -X POST "http://localhost:8000/api/voice/session" \
 
 ## 13. Frontend Application
 
-The frontend (`frontend/`) is a Next.js (App Router, Turbopack, React 19) application designed for clear information presentation:
-- **`ChatWindow.tsx`**: Renders message history, structured advisory badges, and interactive follow-ups.
-- **`AdvisoryCard.tsx`**: Highlights matched policy, severity tier (`CRITICAL`, `HIGH`, `MODERATE`, `LOW`), guidance, and policy citation.
-- **`WeatherFactsBadge.tsx`**: Displays verified weather facts (temperature, wind, rain probability, UV index) with Open-Meteo attribution.
-- **`CurrentLocationWidget.tsx`**: Shows live browser coordinates and quick-action activity prompts.
-- **`TraceViewer.tsx`**: Collapsible inspector displaying the step-by-step LangGraph node execution trace.
-- **`VoiceController.tsx`**: Voice interaction controls with visual connection state indicators (Gemini Live vs Browser Web Speech).
-- **`LanguageSelector.tsx`**: Language selection across all 8 supported Indian and international languages.
+The frontend (`frontend/`) is a Next.js (App Router, Turbopack, React 19) application structured into focused, reusable components:
+- **`Header.tsx`**: Navigation bar with language selector dropdown and geolocation status controls.
+- **`LocationBar.tsx`**: Location status bar displaying the active city or detection state with clear controls.
+- **`CurrentLocationWidget.tsx`**: Detected location card displaying live meteorological metrics and quick activity prompts.
+- **`VoiceController.tsx`**: Real-time bidirectional voice controller supporting Gemini Live streaming and browser Web Speech fallback.
+- **`AdvisoryCard.tsx`**: Structured advisory card displaying policy outcome, severity badge (`CRITICAL`, `HIGH`, `MODERATE`, `LOW`), guidance text, weather metrics, and policy citations.
+- **`WeatherMetrics.tsx`**: Meteorological metrics grid displaying temperature, wind speed, precipitation, rain probability, and UV index.
+- **`EngineeringTrace.tsx`**: Collapsible engineering trace inspector detailing the step-by-step LangGraph node execution flow.
+- **`Suggestions.tsx`**: Quick-prompt suggestion pills localized in the currently selected language.
 
 ---
 
@@ -599,7 +597,6 @@ Weather_Bot/
 │   │   ├── routes/
 │   │   │   ├── __init__.py
 │   │   │   ├── chat.py               # POST /api/chat endpoint
-│   │   │   ├── health.py             # GET /health endpoint
 │   │   │   └── voice.py              # POST /api/voice/session endpoint
 │   │   └── services/
 │   │       ├── __init__.py
@@ -607,6 +604,7 @@ Weather_Bot/
 │   │       ├── intent.py             # Intent extraction & multilingual parser
 │   │       └── weather.py            # Open-Meteo geocoding & forecast client
 │   └── tests/
+│       ├── conftest.py               # Test configuration and fixtures
 │       ├── test_advisory_flow.py     # End-to-end graph tests
 │       ├── test_health.py            # Health check tests
 │       ├── test_intent.py            # Local parser & intent extraction tests
@@ -627,14 +625,17 @@ Weather_Bot/
 │   │   └── globals.css
 │   ├── components/
 │   │   ├── AdvisoryCard.tsx
-│   │   ├── ChatWindow.tsx
 │   │   ├── CurrentLocationWidget.tsx
-│   │   ├── LanguageSelector.tsx
-│   │   ├── TraceViewer.tsx
+│   │   ├── EngineeringTrace.tsx
+│   │   ├── Header.tsx
+│   │   ├── LocationBar.tsx
+│   │   ├── Suggestions.tsx
 │   │   ├── VoiceController.tsx
-│   │   └── WeatherFactsBadge.tsx
+│   │   └── WeatherMetrics.tsx
 │   └── lib/
+│       ├── reverse-geo.ts            # Browser location & reverse geocoding
 │       ├── types.ts                  # TypeScript API models
+│       ├── utils.ts                  # Utility functions
 │       └── voice.ts                  # Audio recorder & WebSocket streaming
 └── docs/
     └── architecture.md
