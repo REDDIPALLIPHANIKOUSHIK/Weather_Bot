@@ -78,9 +78,11 @@ export class GeminiLiveVoice{
  async start(){
    this.stopped=false;this.cb.onStatus?.("connecting");
    try{
-     const r=await fetch(this.api.replace(/\/$/,"")+"/api/voice/session",{method:"POST"});
-     if(!r.ok)throw new Error("Gemini voice service is not configured");
+     const r=await fetch(this.api.replace(/\/$/,"")+"/api/voice/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({language:this.lang})});
+     if(!r.ok)throw new Error("Voice session request failed");
      const d=await r.json();
+     if(d.mode==="fallback"){await this.startFallback();return;}
+     if(!d.ws_url||!d.model)throw new Error("Gemini Live session was not created");
      const ws=new WebSocket(d.ws_url);this.ws=ws;
      await new Promise<void>((res,rej)=>{ws.onopen=()=>res();ws.onerror=()=>rej(new Error("Could not connect to Gemini voice."))});
      ws.onmessage=e=>{try{void this.handle(JSON.parse(e.data))}catch{}};
