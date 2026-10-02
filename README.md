@@ -1,496 +1,370 @@
-# Weatherwise — Weather-Advisory Support Bot
+# Weatherwise — Outdoor Activity Weather Advisory Bot
 
-Weatherwise is a conversational weather-advisory application for questions such as “Is it safe to cycle today?” or “Is this a good day for a picnic?”. It combines live Open-Meteo weather data, a LangGraph workflow, LLM-assisted intent extraction, and a configuration-driven SOP engine to produce recommendations that stay tied to explicit weather conditions and written policies.
+**Weatherwise** is a production-grade weather-advisory platform designed to answer safety questions for outdoor activities—such as *"Is it safe to cycle in Bhopal today?"*, *"Should I take my child to the park in Pune this afternoon?"*, or *"Can I go for a walk here now?"*.
 
-The central design choice is simple: the language model does not decide what is safe. It helps understand the user's request. The application retrieves the live forecast, evaluates the configured SOPs deterministically, and builds the response from validated facts.
+Rather than allowing a language model to hallucinate or guess safety conclusions, Weatherwise pairs live meteorological data from **Open-Meteo** with a **deterministic Standard Operating Procedure (SOP) policy engine**. The application extracts user intent, resolves location precedence, validates live conditions, evaluates written safety rules, and generates grounded recommendations accompanied by a complete engineering trace and real-time voice synthesis.
 
-## Features
+---
 
-### Conversational weather advice
+## Key Features
 
-Users can ask natural-language questions about activities including cycling, running, hiking, walking, picnics, pet walking, park visits, commuting and outdoor leisure.
+- **Grounded Outdoor Safety Advisories**: Covers 10 distinct activities across exercise, vulnerable populations, travel, and leisure:
+  - *Cycling*, *Running*, *Hiking*, *Walking*, *Pet Walking*, *Elderly Outdoor*, *Commuting*, *Park Visits (Children)*, *Picnics*, and *Outdoor Leisure*.
+- **Zero Hallucinated Safety Decisions**: Language models never decide safety. All thresholds, severity tags (`LOW`, `MODERATE`, `HIGH`, `CRITICAL`), and recommendations originate deterministically from verified SOP rules evaluated against live weather metrics.
+- **Live Open-Meteo Integration**: Real-time current conditions and hourly forecasts: temperature, wind speed, precipitation, rain probability, UV index, and weather codes.
+- **Real Browser Geolocation**: High-accuracy `navigator.geolocation` integration with permission handling, status indicators, and retry support for questions about "here" or "current location".
+- **Strict Location Precedence**:
+  1. Explicit city in user prompt (e.g., *"in Bhopal"*)
+  2. Live GPS coordinates when the user asks about *"here"* or *"where I am"*
+  3. Session memory for elliptical follow-ups (e.g., *"What about this evening?"*)
+  4. Honest clarification prompt if no location is available
+- **Real-Time Gemini Live Voice**: Bidirectional voice interaction using Google's low-latency Gemini Live API over WebSocket with client-side audio streaming (16kHz PCM capture and 24kHz PCM playback).
+- **Server-Side Security Boundary**: The permanent Gemini API key never touches the browser. Ephemeral credentials with strict tool calling constraints are generated via `POST /api/voice/session`.
+- **8-Language Multilingual Support**: English, Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, and Bengali for both text queries, voice recognition, and spoken replies.
+- **Resilient Fallback Mode**: If Gemini Live is unconfigured or unavailable, the system automatically falls back to browser Web Speech API (`SpeechRecognition` + `SpeechSynthesis`) without breaking user workflows.
+- **Explainable Engineering Trace**: Collapsible trace detailing intent classification, coordinate resolution, weather metrics, candidate SOP evaluations, and grounding validation.
+- **Monorepo Vercel Deployment**: Configured for Vercel Services uniting a Next.js frontend with a FastAPI backend.
 
-The request is normalized into structured intent:
+---
 
-- activity
-- category
-- location
-- time reference
-- advisory intent
-
-When an LLM provider is configured, the backend requests structured output and validates it with Pydantic. When no provider key is available, a bounded local extractor keeps the core application runnable.
-
-### Live location and weather
-
-Locations are resolved through the Open-Meteo geocoding service and the resulting coordinates are used for the forecast request.
-
-Weather is fetched at request time from Open-Meteo. The application requests and carries the fields needed by the SOP set, including:
-
-- temperature
-- wind speed
-- precipitation
-- precipitation probability
-- UV index
-- WMO weather code
-
-Time phrases such as **today**, **now**, **this afternoon**, **this evening**, **tonight** and **tomorrow** are mapped to a forecast hour. The returned timestamp and timezone stay attached to the weather facts.
-
-There is no production fallback to invented or stale weather. When the upstream service fails, the workflow stops with an explicit service-unavailable response.
-
-### SOP-grounded recommendations
-
-Advisory rules are stored in:
-
-`config/sops.yaml`
-
-The repository contains policies across outdoor exercise, travel, leisure and vulnerable-group scenarios, with severities ranging from `LOW` to `CRITICAL`.
-
-Each policy defines structured information such as:
-
-- policy ID
-- title
-- category
-- supported activities
-- severity
-- priority
-- conditions
-- guidance
-- required weather fields
-- version
-
-This keeps policy data separate from graph control flow. New rules can be added through configuration without writing a new code branch for each SOP.
-
-### Deterministic policy engine
-
-The policy engine evaluates SOP conditions against actual application state rather than asking the LLM to make the safety decision.
-
-Supported scalar operators include:
-
-`eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`
-
-Conditions can be composed with:
-
-`all`, `any`, `not`
-
-Every activity-specific candidate is evaluated, then the matching policies are resolved using severity followed by explicit priority. The evaluation trace is retained so the selected policy can be explained.
-
-The same mechanism handles fuzzy questions such as picnic suitability through combinations of forecast signals instead of relying on a single keyword or a free-form model judgment.
-
-### LangGraph orchestration
-
-The backend uses a real LangGraph `StateGraph` with explicit conditional routes.
-
-```mermaid
-flowchart TD
-    A[User question] --> B[Understand intent + context]
-    B --> C{Activity supported?}
-    C -->|No| D[Explain supported activities]
-    C -->|Yes| E{Location available?}
-    E -->|No| F[Ask for location]
-    E -->|Yes| G[Open-Meteo geocoding]
-    G --> H{Location resolved?}
-    H -->|No / error| I[Honest location failure]
-    H -->|Yes| J[Live Open-Meteo forecast]
-    J --> K{Weather available?}
-    K -->|No / error| L[Honest weather failure]
-    K -->|Yes| M[Retrieve SOP candidates]
-    M --> N[Deterministic policy evaluation]
-    N --> O{SOP matched?}
-    O -->|No| P[No-policy response]
-    O -->|Yes| Q[Compose grounded answer]
-    Q --> R[Grounding validation]
-    R --> S[Response]
-```
-
-The graph state carries the request, session context, resolved location, weather facts, policy candidates, decision result, status and trace between nodes.
-
-### Session-aware follow-ups
-
-Each chat uses a `session_id`. The backend keeps lightweight in-process context for the current conversation.
-
-For example:
-
-```text
-User: Can I cycle in Bhopal today?
-Assistant: ...
-
-User: What about this evening?
-Assistant: ...
-```
-
-The second turn can reuse the earlier activity and location instead of asking the user to repeat them.
-
-Session memory is intentionally ephemeral and is not shared across unrelated sessions.
-
-### Grounding and guardrails
-
-The system treats weather data and policy definitions as authoritative inputs.
-
-Before a successful response is returned, the application validates that:
-
-- the selected SOP exists in the loaded configuration
-- the SOP actually matched the current facts
-- the policy reference is present in the answer
-- displayed weather values originate from the fetched weather state
-- the weather timestamp is carried through when available
-
-If no SOP matches, the application does not invent generic advice. It explicitly reports that the current policy set does not cover the situation.
-
-Missing locations, invalid upstream responses and service failures follow the same fail-honestly approach.
-
-### Prompt-injection resistance
-
-User text is treated as untrusted input. Instructions such as “ignore the SOPs”, “pretend the weather is safe”, or “invent a new policy” cannot modify the deterministic policy engine or create an application rule.
-
-The LLM is constrained to language understanding and composition. It does not own weather facts or the final policy decision.
-
-### Engineering trace
-
-The frontend provides an expandable execution trace for each advisory. It shows structured system events such as:
-
-```text
-intent detected
-location resolved
-live weather retrieved
-candidate SOPs evaluated
-policy selected
-grounding validation passed
-```
-
-The trace is intended to show what the application did without exposing hidden model reasoning.
-
-## Architecture
-
-The project is split into a Next.js client and a small FastAPI service. LangGraph coordinates the request lifecycle, Open-Meteo supplies live location/weather data, and the SOP engine owns the actual policy decision.
-
-```text
-┌──────────────────────┐
-│      Next.js UI      │
-│  Chat + Weather UI   │
-│  SOP + Trace panels  │
-└──────────┬───────────┘
-           │ REST / JSON
-           ▼
-┌──────────────────────┐
-│       FastAPI        │
-│ Request validation   │
-│ CORS + API boundary  │
-└──────────┬───────────┘
-           ▼
-┌──────────────────────────────────┐
-│          LangGraph               │
-│                                  │
-│ Intent / Context                 │
-│        ↓                         │
-│ Location Resolution              │
-│        ↓                         │
-│ Live Weather                     │
-│        ↓                         │
-│ SOP Retrieval                    │
-│        ↓                         │
-│ Deterministic Policy Evaluation  │
-│        ↓                         │
-│ Grounded Response + Validation   │
-└──────┬─────────────┬─────────────┘
-       │             │
-       ▼             ▼
-┌────────────┐  ┌─────────────────┐
-│ Open-Meteo │  │ config/sops.yaml│
-│ Geocoding  │  │ Policy source   │
-│ Forecast   │  │                 │
-└────────────┘  └─────────────────┘
-```
-
-### Responsibility boundaries
-
-| Layer | What it does |
-|---|---|
-| **Frontend** | Collects questions, displays conversation, weather facts, policy information and trace data |
-| **FastAPI** | Validates requests and exposes the REST API |
-| **LangGraph** | Orchestrates state, branching and failure paths |
-| **LLM layer** | Extracts structured user intent when configured |
-| **Open-Meteo** | Resolves locations and supplies live forecast values |
-| **SOP configuration** | Defines the written advisory policies |
-| **Policy engine** | Evaluates conditions and selects the applicable policy |
-| **Session store** | Maintains lightweight context for follow-up turns |
-| **Validation** | Ensures the final response remains tied to actual state |
-
-## Tech stack
+## Technology Stack
 
 ### Frontend
-
-- **Next.js 16**
-- **React 19**
-- **TypeScript**
-- **Tailwind CSS 4**
-- **shadcn-style UI primitive**
-- **Lucide React**
-- **Framer Motion**
+- **Framework**: Next.js 15+ (App Router)
+- **Library**: React 19, TypeScript
+- **Styling**: Tailwind CSS v4 (Glassmorphism, dark palette, responsive design)
+- **Icons**: Lucide React
+- **Audio Processing**: Web Audio API (`AudioContext`, `ScriptProcessorNode`, PCM ArrayBuffer streaming)
+- **Geolocation**: Browser `navigator.geolocation` API
 
 ### Backend
+- **Framework**: Python 3.12+, FastAPI
+- **Data Validation & Schemas**: Pydantic v2
+- **HTTP Client**: `httpx` (asynchronous networking with retries and timeout controls)
+- **Policy Definition**: PyYAML (machine-readable rule definitions in `config/sops.yaml`)
+- **Testing**: `pytest`, `pytest-asyncio`
 
-- **Python 3.11+**
-- **FastAPI**
-- **LangGraph**
-- **Pydantic v2**
-- **httpx**
-- **PyYAML**
-- **python-dotenv**
+### Meteorological & AI Services
+- **Weather Provider**: Open-Meteo Forecast API & Open-Meteo Geocoding API
+- **Voice Engine**: Gemini Live WebSocket API (`BidiGenerateContentConstrained`) with tool calling (`get_weather_advisory`)
+- **Intent Extraction**: Gemini structured JSON schema extraction with local multilingual regex fallback
 
-### AI / LLM
+---
 
-- **LLM-assisted intent extraction**
-- **Structured JSON / JSON Schema output**
-- **Pydantic validation**
-- **Prompt and context-aware extraction**
-- **OpenAI / OpenAI-compatible provider integration**
+## Architecture & Request Flow
 
-The LLM is deliberately kept behind the policy boundary. It interprets the question but does not decide the advisory.
+```
+┌────────────────────────────────────────────────────────┐
+│                   User (Text / Voice)                  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│               Intent Understanding Layer               │
+│  - Activity (cycling, walking, picnic, etc.)           │
+│  - Location (explicit city, Indic script, or 'here')   │
+│  - Time Reference (now, today, evening, tomorrow)      │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│             Location Precedence Resolution             │
+│  Explicit City  ──►  Open-Meteo Geocoding              │
+│  'Here' Intent  ──►  Live Browser Coordinates (GPS)    │
+│  Follow-Up      ──►  Ephemeral Session Memory          │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│                Live Weather Retrieval                  │
+│  Open-Meteo Forecast API (Current + Hourly Snapshot)   │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│           Deterministic SOP Policy Engine              │
+│  1. Retrieve applicable SOPs for activity              │
+│  2. Validate required weather fields                   │
+│  3. Evaluate conditions (eq, gt, gte, lt, lte, in)     │
+│  4. Resolve conflicts by severity and priority weights │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│              Grounded Response Synthesis               │
+│  Facts + Severity Badge + Guidance + Trace + Citation  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│               Frontend Display & Audio Playback        │
+└────────────────────────────────────────────────────────┘
+```
 
-### APIs and communication
+---
 
-- **REST API** for frontend-to-backend communication
-- **Open-Meteo Geocoding API**
-- **Open-Meteo Forecast API**
-- **HTTP/JSON** for upstream weather requests
+## Deterministic SOP Policy Engine
 
-### Policy and decision layer
+Safety rules reside in `config/sops.yaml`. Each policy is validated on startup into typed Pydantic models:
 
-- **YAML-based SOP configuration**
-- **Declarative rule evaluation**
-- **Deterministic policy selection**
-- **Severity and priority resolution**
-- **Structured decision tracing**
-- **Grounding validation**
+```yaml
+- id: WB-001
+  title: Crosswinds During Cycling
+  category: outdoor_exercise
+  activities: [cycling]
+  severity: HIGH
+  priority: 90
+  conditions:
+    field: wind_speed_10m
+    operator: gte
+    value: 40
+  guidance:
+    - "Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease."
+```
 
-### Testing
+### Supported Condition Operators
+- **Scalar**: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`
+- **Composite**: `all`, `any`, `not`
 
-- **Pytest**
-- **pytest-asyncio**
-- API tests
-- Policy-engine tests
-- Weather-service tests
-- Session-memory tests
-- Structured-intent tests
-- Offline evaluation cases
+### Priority Resolution
+If multiple conditions match (e.g. Extreme Heat `WB-005` [CRITICAL] and Wet Conditions `WB-002` [MODERATE] for running), the engine deterministically selects the highest severity tier (`CRITICAL` > `HIGH` > `MODERATE` > `LOW`), using priority integer weights (1–100) to break ties.
 
-## RAG status
+---
 
-This repository does **not** currently use a vector database, embeddings, or a conventional semantic RAG pipeline.
+## Gemini Live Voice & Security
 
-That is intentional. The policy corpus is small, structured, and rule-oriented, so direct configuration loading plus deterministic condition evaluation is a better fit than introducing a retrieval stack that would not add value here.
+1. **Client-Server Boundary**: The browser never receives permanent API keys.
+2. **Ephemeral Session Tokens**: The backend communicates with `https://generativelanguage.googleapis.com/v1beta/auth_tokens` to create a 30-minute scoped token locked to the `models/gemini-2.0-flash-exp` model and the `get_weather_advisory` tool schema.
+3. **Direct WebSocket**: The browser connects to `wss://generativelanguage.googleapis.com/ws/...` using the ephemeral token.
+4. **Tool Execution**: When the user speaks an outdoor question, Gemini invokes `get_weather_advisory`. The client queries `/api/chat` with current GPS coordinates and feeds the grounded result back into the WebSocket.
+5. **Instant Interruption**: Speaking while the assistant is talking automatically cancels queued audio buffers and returns the UI to a listening state.
 
-The application still has an explicit retrieval step: candidate SOPs are selected from the external policy configuration before deterministic evaluation. This is policy retrieval, not vector-based RAG.
+---
 
-## API
+## Multilingual Support
 
-### `POST /api/chat`
+Weatherwise provides full end-to-end support for 8 languages:
 
-Request:
+| Language | Code | Native Name | Script Support |
+| :--- | :--- | :--- | :--- |
+| **English** | `en-IN` | English | Latin |
+| **Telugu** | `te-IN` | తెలుగు | Telugu script & transliteration |
+| **Hindi** | `hi-IN` | हिन्दी | Devanagari |
+| **Tamil** | `ta-IN` | தமிழ் | Tamil script |
+| **Kannada** | `kn-IN` | ಕನ್ನಡ | Kannada script |
+| **Malayalam** | `ml-IN` | മലയാളം | Malayalam script |
+| **Marathi** | `mr-IN` | मराठी | Devanagari |
+| **Bengali** | `bn-IN` | বাংলা | Bengali script |
 
+The core policy engine remains language-independent; localization occurs seamlessly at the interaction and speech layer.
+
+---
+
+## REST API Specification
+
+### `GET /health`
+Returns system health and service status.
+
+**Response**:
 ```json
 {
-  "session_id": "your-session-id",
-  "message": "Is it safe to cycle in Bhopal today?"
+  "status": "ok",
+  "service": "Weatherwise",
+  "version": "1.0.0"
 }
 ```
 
-A successful response can contain:
+---
 
-- `status`
-- `answer`
-- `location`
-- `weather`
-- `policy`
-- `trace`
+### `POST /api/chat`
+Processes an outdoor activity query.
 
-Use the same `session_id` for follow-up questions.
-
-### `GET /health`
-
-Returns the backend health status.
-
-## Deploy to Vercel
-
-Deploy this repository from its root as one Vercel Services project. Set the Vercel framework preset to **Services** and keep the project root at `./`; root `vercel.json` configures the `frontend/` and `backend/` services and routes `/api/*` plus `/health` to FastAPI.
-
-Run `vercel link` and `vercel deploy --prod` from the repository root. Leave `NEXT_PUBLIC_API_URL` unset in Vercel so browser requests use the same-domain API rewrite. Set `OPENAI_API_KEY` only as a backend server-side environment variable if structured intent extraction is enabled. Open-Meteo needs no key.
-
-The backend service includes `backend/config/sops.yaml`, a deployment copy of the canonical `config/sops.yaml`; keep them aligned when editing SOPs. Session context is held in process memory and may be lost across serverless instances or restarts.
-
-## Project structure
-
-```text
-Weather_Bot/
-├── backend/
-│   ├── app/
-│   │   ├── graph.py
-│   │   ├── llm.py
-│   │   ├── main.py
-│   │   ├── models.py
-│   │   └── services.py
-│   ├── tests/
-│   └── requirements.txt
-│
-├── config/
-│   └── sops.yaml
-│
-├── docs/
-│   ├── architecture.md
-│   ├── decisions.md
-│   └── evaluation.md
-│
-├── evals/
-│   ├── cases.yaml
-│   ├── run.py
-│   └── README.md
-│
-├── frontend/
-│   ├── app/
-│   ├── components/
-│   ├── lib/
-│   └── package.json
-│
-├── .env.example
-├── .gitignore
-├── pytest.ini
-└── README.md
+**Request**:
+```json
+{
+  "session_id": "session_abc123",
+  "message": "Is it safe to cycle in Bhopal today?",
+  "current_location": {
+    "latitude": 23.2599,
+    "longitude": 77.4126,
+    "accuracy": 15.0
+  }
+}
 ```
 
-## Run locally
+**Response**:
+```json
+{
+  "answer": "[HIGH ADVISORY] Cycling in Bhopal, India. Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease. Current conditions: 28.5°C, winds 42.0 km/h, 10% rain probability. Policy: WB-001 - Crosswinds During Cycling. Source: Open-Meteo at 2026-10-02T14:00 (Asia/Kolkata).",
+  "status": "matched",
+  "location": {
+    "name": "Bhopal",
+    "country": "India",
+    "latitude": 23.2599,
+    "longitude": 77.4126
+  },
+  "weather": {
+    "temperature_2m": 28.5,
+    "wind_speed_10m": 42.0,
+    "precipitation": 0.0,
+    "precipitation_probability": 10,
+    "uv_index": 5.4,
+    "weather_code": 1,
+    "observed_at": "2026-10-02T14:00",
+    "timezone": "Asia/Kolkata",
+    "source": "Open-Meteo"
+  },
+  "policy": {
+    "outcome": "matched",
+    "sop_id": "WB-001",
+    "title": "Crosswinds During Cycling",
+    "severity": "HIGH",
+    "priority": 90,
+    "guidance": ["Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease."],
+    "trace": [...]
+  },
+  "trace": [
+    "Advisory started for session 'session_abc123'",
+    "Intent extracted via rule_based: activity='cycling', location='Bhopal', use_curr=False, time='today'",
+    "Geocoded 'Bhopal' -> Bhopal, India",
+    "Retrieved live Open-Meteo weather for Bhopal",
+    "Found 3 applicable SOP definitions for 'cycling'",
+    "Policy evaluation outcome: matched (matched: WB-001)",
+    "Grounded answer generated successfully"
+  ]
+}
+```
 
-### Prerequisites
+---
 
-- Python 3.11+
-- Node.js 20+
-- npm
-- Internet access for Open-Meteo
-- Optional LLM provider credentials
+### `POST /api/voice/session`
+Mints short-lived ephemeral session credentials for Gemini Live WebSocket connections.
 
-No weather API key is required.
+**Request**:
+```json
+{
+  "language": "te-IN"
+}
+```
 
-### Backend
+**Response (when configured)**:
+```json
+{
+  "mode": "gemini_live",
+  "model": "gemini-2.0-flash-exp",
+  "ws_url": "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=...",
+  "language": "te-IN",
+  "instructions": "..."
+}
+```
 
-From the repository root:
+*(When `GEMINI_API_KEY` is omitted, the API responds with `mode: "fallback"` to activate browser Web Speech safely).*
 
+---
+
+## Local Development Setup
+
+### 1. Prerequisites
+- **Node.js**: v18+ (tested on v24)
+- **Python**: 3.11+ (tested on 3.12)
+
+### 2. Backend Setup
 ```bash
+# Navigate to repository root
 cd backend
+
+# Create and activate virtual environment
 python -m venv .venv
-```
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-macOS/Linux:
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Run backend service
+uvicorn app.main:app --reload --port 8000
 ```
 
-Create a backend `.env` using the variables documented in `.env.example`.
-
-Start the API:
-
+### 3. Frontend Setup
 ```bash
-uvicorn app.main:app --reload
-```
-
-The backend runs on:
-
-```text
-http://localhost:8000
-```
-
-### Frontend
-
-In another terminal:
-
-```bash
+# In a separate terminal, navigate to frontend
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start Next.js development server
 npm run dev
 ```
 
-Open:
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-```text
-http://localhost:3000
-```
+---
 
-Set `NEXT_PUBLIC_API_URL` when the frontend needs to call a deployed backend.
+## Automated Test Suite
 
-## Testing
-
-Run the backend tests from the repository root:
+Run the complete backend test suite:
 
 ```bash
-python -m pytest -q
+# From repository root
+pytest -v
 ```
 
-Run the lightweight evaluation suite:
+The automated tests validate:
+- Health check endpoints (`/health`)
+- End-to-end explicit city queries
+- Live GPS coordinate handling
+- Missing/denied location fallbacks
+- Unsupported activity detection
+- Deterministic condition trees & operator logic
+- Conflict resolution (highest severity & priority selection)
+- Missing weather field detection (`insufficient_data`)
+- Prompt injection resistance
+- Upstream Open-Meteo failure handling
+- Multi-turn session context preservation
+- Voice session token provisioning and fallback
+- Multilingual voice configurations for all 8 supported languages
 
+To run frontend checks:
 ```bash
-python evals/run.py
+cd frontend
+npm run build
 ```
 
-The test suite covers core policy evaluation, API validation, weather-service behavior, structured intent extraction and session context.
+---
 
-Weather-dependent behavior is kept separate from deterministic policy tests because live forecast values change over time.
+## Vercel Deployment
 
-## Adding or changing an SOP
+The repository is configured for monorepo deployment using Vercel Services via `vercel.json`:
 
-Policies live in:
-
-```text
-config/sops.yaml
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "frontend": {
+      "root": "frontend/",
+      "framework": "nextjs"
+    },
+    "backend": {
+      "root": "backend/",
+      "framework": "fastapi",
+      "entrypoint": "main:app"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    { "source": "/health", "destination": { "service": "backend" } },
+    { "source": "/(.*)", "destination": { "service": "frontend" } }
+  ]
+}
 ```
 
-An SOP defines the activities it applies to and its conditions. The graph does not contain a branch for an individual policy ID.
+Environment variables to configure on Vercel:
+- `GEMINI_API_KEY`: Google Gemini API key (server-side only)
+- `GEMINI_LIVE_MODEL`: Optional override for live voice model (defaults to `gemini-2.0-flash-exp`)
+- `CORS_ORIGINS`: Allowed origins (e.g., `*` or your production domain)
 
-A new policy can therefore be added without changing the workflow implementation:
-
-```yaml
-- id: WB-NEW
-  title: Example Outdoor Condition
-  category: leisure
-  activities: [picnic]
-  severity: LOW
-  priority: 20
-  conditions:
-    all:
-      - {field: precipitation_probability, operator: lt, value: 30}
-      - {field: wind_speed_10m, operator: lt, value: 25}
-  guidance:
-    - "Use the guidance defined by this policy."
-```
-
-After configuration reload, the existing policy engine can evaluate it using the same generic operators.
-
-## Design principles
-
-**Live facts stay live.** Weather measurements come from Open-Meteo at request time.
-
-**Policies stay explicit.** Advisory logic lives in configuration instead of being hidden in prompts.
-
-**The LLM has a narrow role.** It helps interpret natural language but cannot override deterministic policy evaluation.
-
-**Failures stay honest.** Missing information or unavailable upstream services do not turn into plausible-looking guesses.
-
-**The application is traceable.** Each response carries structured location, weather, policy and execution information.
-
-## Scope
-
-Weatherwise is a focused outdoor-advisory application rather than a general weather platform. The supported activity and time vocabulary is intentionally bounded, session context is process-local, and the SOP thresholds are application-defined policies rather than a replacement for official weather or emergency guidance.
+---
 
 ## License
 
-This project is provided for educational and application-development use.
+MIT License. Designed and engineered for production reliability.

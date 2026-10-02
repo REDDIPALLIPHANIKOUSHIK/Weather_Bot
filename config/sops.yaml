@@ -1,14 +1,126 @@
 version: 1
 sops:
-  - {id: WB-001, title: Crosswinds During Cycling, category: outdoor_exercise, activities: [cycling], severity: HIGH, priority: 90, conditions: {field: wind_speed_10m, operator: gte, value: 40}, guidance: ["Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease."]}
-  - {id: WB-002, title: Wet Conditions for Running, category: outdoor_exercise, activities: [running, hiking], severity: MODERATE, priority: 55, conditions: {field: precipitation, operator: gte, value: 2}, guidance: ["Active precipitation is elevated; consider postponing this outdoor session."]}
-  - {id: WB-003, title: High Rain Chance for Commuting, category: travel, activities: [commuting, cycling], severity: MODERATE, priority: 60, conditions: {field: precipitation_probability, operator: gte, value: 70}, guidance: ["Rain is likely during the forecast period; consider delaying or choosing a covered route."]}
-  - {id: WB-004, title: High UV During Exercise, category: outdoor_exercise, activities: [running, hiking, walking, cycling], severity: HIGH, priority: 75, conditions: {field: uv_index, operator: gte, value: 8}, guidance: ["The forecast UV index is very high; reschedule strenuous exposure to a lower-UV period."]}
-  - {id: WB-005, title: Extreme Heat for Outdoor Activity, category: vulnerable_groups, activities: [running, hiking, walking, park_visit, picnic, outdoor_leisure], severity: CRITICAL, priority: 100, conditions: {field: temperature_2m, operator: gte, value: 40}, guidance: ["Extreme heat is forecast; avoid this outdoor activity during the hottest period."]}
-  - {id: WB-006, title: Warm Weather at a Children's Park Visit, category: vulnerable_groups, activities: [park_visit], severity: HIGH, priority: 82, conditions: {field: temperature_2m, operator: gte, value: 35}, guidance: ["High temperatures can be stressful for children; postpone the visit to a cooler period."]}
-  - {id: WB-007, title: Heat During a Walk, category: vulnerable_groups, activities: [walking], severity: MODERATE, priority: 58, conditions: {field: temperature_2m, operator: gte, value: 33}, guidance: ["Warm conditions are forecast; consider moving the walk to a cooler time."]}
-  - {id: WB-008, title: Wind and Rain for Pet Walking, category: leisure, activities: [pet_walking], severity: MODERATE, priority: 62, conditions: {all: [{field: wind_speed_10m, operator: gte, value: 35}, {field: precipitation_probability, operator: gte, value: 60}]}, guidance: ["Wind and likely rain coincide; shorten or reschedule an exposed walk."]}
-  - {id: WB-009, title: Wind Exposure on a Hike, category: outdoor_exercise, activities: [hiking], severity: HIGH, priority: 78, conditions: {field: wind_speed_10m, operator: gte, value: 50}, guidance: ["Strong winds can be hazardous on exposed trails; postpone the hike."]}
+  - id: WB-001
+    title: Crosswinds During Cycling
+    category: outdoor_exercise
+    activities: [cycling]
+    severity: HIGH
+    priority: 90
+    conditions:
+      field: wind_speed_10m
+      operator: gte
+      value: 40
+    guidance:
+      - "Strong winds can make a bicycle difficult to control; postpone the ride until conditions ease."
+
+  - id: WB-002
+    title: Wet Conditions for Running
+    category: outdoor_exercise
+    activities: [running, hiking]
+    severity: MODERATE
+    priority: 55
+    conditions:
+      field: precipitation
+      operator: gte
+      value: 2
+    guidance:
+      - "Active precipitation is elevated; consider postponing this outdoor session."
+
+  - id: WB-003
+    title: High Rain Chance for Commuting
+    category: travel
+    activities: [commuting, cycling]
+    severity: MODERATE
+    priority: 60
+    conditions:
+      field: precipitation_probability
+      operator: gte
+      value: 70
+    guidance:
+      - "Rain is likely during the forecast period; consider delaying or choosing a covered route."
+
+  - id: WB-004
+    title: High UV During Exercise
+    category: outdoor_exercise
+    activities: [running, hiking, walking, cycling]
+    severity: HIGH
+    priority: 75
+    conditions:
+      field: uv_index
+      operator: gte
+      value: 8
+    guidance:
+      - "The forecast UV index is very high; reschedule strenuous exposure to a lower-UV period."
+
+  - id: WB-005
+    title: Extreme Heat for Outdoor Activity
+    category: vulnerable_groups
+    activities: [running, hiking, walking, park_visit, picnic, outdoor_leisure]
+    severity: CRITICAL
+    priority: 100
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 40
+    guidance:
+      - "Extreme heat is forecast; avoid this outdoor activity during the hottest period."
+
+  - id: WB-006
+    title: Warm Weather at a Children's Park Visit
+    category: vulnerable_groups
+    activities: [park_visit]
+    severity: HIGH
+    priority: 82
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 35
+    guidance:
+      - "High temperatures can be stressful for children; postpone the visit to a cooler period."
+
+  - id: WB-007
+    title: Heat During a Walk
+    category: vulnerable_groups
+    activities: [walking]
+    severity: MODERATE
+    priority: 58
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 33
+    guidance:
+      - "Warm conditions are forecast; consider moving the walk to a cooler time."
+
+  - id: WB-008
+    title: Wind and Rain for Pet Walking
+    category: leisure
+    activities: [pet_walking]
+    severity: MODERATE
+    priority: 62
+    conditions:
+      all:
+        - field: wind_speed_10m
+          operator: gte
+          value: 35
+        - field: precipitation_probability
+          operator: gte
+          value: 60
+    guidance:
+      - "Wind and likely rain coincide; shorten or reschedule an exposed walk."
+
+  - id: WB-009
+    title: Wind Exposure on a Hike
+    category: outdoor_exercise
+    activities: [hiking]
+    severity: HIGH
+    priority: 78
+    conditions:
+      field: wind_speed_10m
+      operator: gte
+      value: 50
+    guidance:
+      - "Strong winds can be hazardous on exposed trails; postpone the hike."
+
   - id: WB-010
     title: Picnic Conditions Are Unfavorable
     category: leisure
@@ -17,16 +129,110 @@ sops:
     priority: 70
     conditions:
       any:
-        - {field: precipitation_probability, operator: gte, value: 55}
-        - {field: precipitation, operator: gte, value: 1}
-        - {field: wind_speed_10m, operator: gte, value: 35}
-        - {field: uv_index, operator: gte, value: 8}
-        - {field: temperature_2m, operator: gte, value: 36}
-        - {field: temperature_2m, operator: lte, value: 5}
-        - {field: weather_code, operator: in, value: [61, 63, 65, 80, 81, 82]}
-    guidance: ["At least one defined forecast comfort trigger is present; consider another time or a sheltered venue."]
-  - {id: WB-011, title: Rain Risk for Outdoor Leisure, category: leisure, activities: [outdoor_leisure, park_visit], severity: MODERATE, priority: 52, conditions: {field: precipitation_probability, operator: gte, value: 65}, guidance: ["Rain is likely in the forecast period; an indoor or covered plan may be more suitable."]}
-  - {id: WB-012, title: High Heat for a Cycle Commute, category: travel, activities: [commuting, cycling], severity: HIGH, priority: 80, conditions: {field: temperature_2m, operator: gte, value: 38}, guidance: ["Very hot conditions are forecast; consider a cooler departure time or another mode of travel."]}
-  - {id: WB-013, title: Favorable Picnic Weather Window, category: leisure, activities: [picnic], severity: LOW, priority: 20, conditions: {all: [{field: precipitation_probability, operator: lt, value: 30}, {field: precipitation, operator: lt, value: 0.5}, {field: temperature_2m, operator: gte, value: 12}, {field: temperature_2m, operator: lte, value: 29}, {field: wind_speed_10m, operator: lt, value: 25}, {field: uv_index, operator: lt, value: 7}, {field: weather_code, operator: in, value: [0, 1, 2, 3, 45, 48]}]}, guidance: ["The available forecast fits this SOP's lower-impact picnic window."]}
-  - {id: WB-014, title: Heat During a Pet Walk, category: leisure, activities: [pet_walking], severity: HIGH, priority: 85, conditions: {field: temperature_2m, operator: gte, value: 32}, guidance: ["Hot pavement and air can be hard on pets; move the walk to a cooler period."]}
-  - {id: WB-015, title: Warm Conditions for an Older Adult Outdoors, category: vulnerable_groups, activities: [elderly_outdoor], severity: HIGH, priority: 88, conditions: {field: temperature_2m, operator: gte, value: 32}, guidance: ["Warm conditions may increase heat strain for older adults; postpone the outdoor activity until cooler conditions."]}
+        - field: precipitation_probability
+          operator: gte
+          value: 55
+        - field: precipitation
+          operator: gte
+          value: 1
+        - field: wind_speed_10m
+          operator: gte
+          value: 35
+        - field: uv_index
+          operator: gte
+          value: 8
+        - field: temperature_2m
+          operator: gte
+          value: 36
+        - field: temperature_2m
+          operator: lte
+          value: 5
+        - field: weather_code
+          operator: in
+          value: [61, 63, 65, 80, 81, 82]
+    guidance:
+      - "At least one defined forecast comfort trigger is present; consider another time or a sheltered venue."
+
+  - id: WB-011
+    title: Rain Risk for Outdoor Leisure
+    category: leisure
+    activities: [outdoor_leisure, park_visit]
+    severity: MODERATE
+    priority: 52
+    conditions:
+      field: precipitation_probability
+      operator: gte
+      value: 65
+    guidance:
+      - "Rain is likely in the forecast period; an indoor or covered plan may be more suitable."
+
+  - id: WB-012
+    title: High Heat for a Cycle Commute
+    category: travel
+    activities: [commuting, cycling]
+    severity: HIGH
+    priority: 80
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 38
+    guidance:
+      - "Very hot conditions are forecast; consider a cooler departure time or another mode of travel."
+
+  - id: WB-013
+    title: Favorable Picnic Weather Window
+    category: leisure
+    activities: [picnic]
+    severity: LOW
+    priority: 20
+    conditions:
+      all:
+        - field: precipitation_probability
+          operator: lt
+          value: 30
+        - field: precipitation
+          operator: lt
+          value: 0.5
+        - field: temperature_2m
+          operator: gte
+          value: 12
+        - field: temperature_2m
+          operator: lte
+          value: 29
+        - field: wind_speed_10m
+          operator: lt
+          value: 25
+        - field: uv_index
+          operator: lt
+          value: 7
+        - field: weather_code
+          operator: in
+          value: [0, 1, 2, 3, 45, 48]
+    guidance:
+      - "The available forecast fits this SOP's lower-impact picnic window."
+
+  - id: WB-014
+    title: Heat During a Pet Walk
+    category: leisure
+    activities: [pet_walking]
+    severity: HIGH
+    priority: 85
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 32
+    guidance:
+      - "Hot pavement and air can be hard on pets; move the walk to a cooler period."
+
+  - id: WB-015
+    title: Warm Conditions for an Older Adult Outdoors
+    category: vulnerable_groups
+    activities: [elderly_outdoor]
+    severity: HIGH
+    priority: 88
+    conditions:
+      field: temperature_2m
+      operator: gte
+      value: 32
+    guidance:
+      - "Warm conditions may increase heat strain for older adults; postpone the outdoor activity until cooler conditions."

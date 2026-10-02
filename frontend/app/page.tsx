@@ -1,47 +1,385 @@
 "use client";
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, CloudSun, MapPin, ShieldCheck, Sparkles, Wind, Droplets, Sun, Thermometer, ChevronDown, RotateCcw, LocateFixed, Mic, MicOff, Volume2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { GeminiLiveVoice, type CurrentLocation, type VoiceLanguage, type VoiceStatus } from "@/lib/voice";
 
-type Reply = { answer: string; status: string; location?: {name:string;country:string}; weather?: {temperature_2m:number|null;wind_speed_10m:number|null;precipitation_probability:number|null;uv_index:number|null;observed_at:string;timezone:string;source:string}; policy?: {outcome:string;sop_id?:string;title?:string;severity?:string;trace?:{sop_id:string;matched:boolean;detail:string}[]}; trace:string[] };
-type Turn = { question:string; answer?:string; status?:string; at:string };
-type LocationState = "idle" | "requesting" | "ready" | "denied" | "error";
-const VOICE_LANGUAGES: {code: VoiceLanguage; label: string}[] = [
-  {code:"en-IN",label:"English"},{code:"te-IN",label:"తెలుగు"},{code:"hi-IN",label:"हिन्दी"},
-  {code:"ta-IN",label:"தமிழ்"},{code:"kn-IN",label:"ಕನ್ನಡ"},{code:"ml-IN",label:"മലയാളം"},
-  {code:"mr-IN",label:"मराठी"},{code:"bn-IN",label:"বাংলা"},
-];
-// Vercel Services routes this same-origin path to FastAPI. Local development
-// keeps the standalone backend URL unless NEXT_PUBLIC_API_URL overrides it.
-const API = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "development" ? "http://localhost:8000" : "");
-function sessionId() { if (typeof window === "undefined") return ""; let id=sessionStorage.getItem("weatherwise-session"); if(!id){id=crypto.randomUUID();sessionStorage.setItem("weatherwise-session",id);} return id; }
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Send, Sparkles, MessageSquare, Loader2, Bot, AlertCircle } from "lucide-react";
+import { Header } from "../components/Header";
+import { LocationBar } from "../components/LocationBar";
+import { VoiceController } from "../components/VoiceController";
+import { AdvisoryCard } from "../components/AdvisoryCard";
+import { Suggestions } from "../components/Suggestions";
+import {
+  ChatMessage,
+  ChatResponse,
+  CurrentLocation,
+  VoiceLanguage,
+  VoiceStatus,
+} from "../lib/types";
+import { WeatherwiseVoiceEngine } from "../lib/voice";
 
 export default function Home() {
- const [input,setInput]=useState(""); const [reply,setReply]=useState<Reply|null>(null); const [turns,setTurns]=useState<Turn[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState(""); const [traceOpen,setTraceOpen]=useState(false);
- const [locationState,setLocationState]=useState<LocationState>("idle"); const [currentLocation,setCurrentLocation]=useState<CurrentLocation|null>(null); const [voiceStatus,setVoiceStatus]=useState<VoiceStatus>("idle"); const [voiceLanguage,setVoiceLanguage]=useState<VoiceLanguage>("en-IN"); const [voiceMessage,setVoiceMessage]=useState(""); const [voiceInput,setVoiceInput]=useState(""); const [voiceOutput,setVoiceOutput]=useState(""); const voiceRef=useRef<GeminiLiveVoice|null>(null);
- useEffect(()=>()=>{void voiceRef.current?.stop()},[]);
- function detectLocation(){if(!navigator.geolocation){setLocationState("error");setError("Live location is not available in this browser. You can still enter a city manually.");return;}setLocationState("requesting");navigator.geolocation.getCurrentPosition(p=>{setCurrentLocation({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,timestamp:new Date(p.timestamp).toISOString()});setLocationState("ready");setError("")},()=>{setLocationState("denied");setError("Location access was not granted. You can continue with a city name instead.")},{enableHighAccuracy:true,timeout:10000,maximumAge:30000})}
- async function startVoice(){if(voiceRef.current||voiceStatus==="connecting")return;const client=new GeminiLiveVoice(API,sessionId(),voiceLanguage,{getCurrentLocation:()=>currentLocation,onStatus:(s,m)=>{setVoiceStatus(s);setVoiceMessage(m||"")},onInputTranscript:t=>setVoiceInput(t),onOutputTranscript:t=>setVoiceOutput(p=>p?p+" "+t:t),onAdvisory:(d,q)=>{setReply(d as Reply);setTurns(p=>[...p,{question:q||"Voice request",answer:d.answer,status:d.status,at:new Date().toISOString()}])}});voiceRef.current=client;try{await client.start()}catch(e){voiceRef.current=null;setVoiceStatus("error");setVoiceMessage(e instanceof Error?e.message:"Could not start voice.")}}
- async function stopVoice(){await voiceRef.current?.stop();voiceRef.current=null;setVoiceStatus("idle");setVoiceMessage("")}
- async function ask(text:string) { if(!text.trim()||loading)return; setInput("");setReply(null);setLoading(true);setError("");setTurns(prev=>[...prev,{question:text,at:new Date().toISOString()}]); try { const response=await fetch(`${API}/api/chat`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session_id:sessionId(),message:text,current_location:currentLocation})}); if(!response.ok)throw new Error("The advisory service returned an error. Please try again."); const data:Reply=await response.json(); setReply(data); setTurns(prev=>prev.map((turn,index)=>index===prev.length-1?{...turn,answer:data.answer,status:data.status}:turn)); } catch(e) { const message=e instanceof Error?e.message:"Could not reach the advisory service."; setError(message);setTurns(prev=>prev.map((turn,index)=>index===prev.length-1?{...turn,answer:message,status:"error"}:turn)); } finally {setLoading(false);} }
- function submit(e:FormEvent){e.preventDefault();void ask(input);}
- const suggestions=["Is it safe to cycle in Bhopal today?","Should I take my child to the park in Pune this afternoon?","Is today a good day for a picnic in Jaipur?"];
- return <main className="shell min-h-screen"><header className="topbar"><a className="brand" href="#"><span className="brand-icon"><CloudSun size={20}/></span>weatherwise</a><div className="top-actions"><button className={`location-chip ${locationState}`} onClick={detectLocation} type="button" disabled={locationState==="requesting"}><LocateFixed size={14}/>{locationState==="requesting"?"LOCATING…":locationState==="ready"?"LOCATION READY":"USE MY LOCATION"}</button><div className="top-note"><span className="live-dot"/>LIVE CONDITIONS <span className="divider">/</span> SOP-GROUNDED</div></div></header>
- <section className="hero"><div className="eyebrow"><Sparkles size={14}/> YOUR OUTDOOR SAFETY COMPANION</div><h1>Make plans with<br/><em>the weather</em> in mind.</h1><p className="lede">Ask about an outdoor activity. Get a clear recommendation grounded in live local weather and written safety policies.</p>
- <div className="input-card"><div className="input-heading"><span>WHAT ARE YOU PLANNING?</span><span className="input-hint">A place and activity work best</span></div><form onSubmit={submit}><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder="e.g. Is it safe to go for a run in Bengaluru this evening?" rows={2} maxLength={1000} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();void ask(input);}}}/><Button className="send" size="icon" disabled={!input.trim()||loading} aria-label="Get advisory">{loading?<span className="spinner"/>:<ArrowUp size={19}/>}</Button></form><div className="input-footer"><span><ShieldCheck size={14}/> Your question is evaluated against written policies</span><span>{input.length}/1000</span></div></div>
- <div className="assistant-controls"><select className="language-select" value={voiceLanguage} onChange={e=>setVoiceLanguage(e.target.value as VoiceLanguage)} disabled={voiceStatus==="connecting"||voiceStatus==="listening"||voiceStatus==="speaking"} aria-label="Voice language">{VOICE_LANGUAGES.map(lang=><option key={lang.code} value={lang.code}>{lang.label}</option>)}</select><button className={`location-control ${locationState}`} onClick={detectLocation} type="button" disabled={locationState==="requesting"}><LocateFixed size={16}/><span>{locationState==="ready"?"Using your current location":locationState==="requesting"?"Detecting location…":"Use my current location"}</span></button><button className={`voice-button ${voiceStatus}`} onClick={()=>void((voiceStatus!=="idle"&&voiceStatus!=="error")?stopVoice():startVoice())} type="button">{voiceStatus!=="idle"&&voiceStatus!=="error"?<MicOff size={17}/>:<Mic size={17}/>}<span>{voiceStatus!=="idle"&&voiceStatus!=="error"?"Stop Voice":"Start Voice"}</span>{voiceStatus!=="idle"&&voiceStatus!=="error"&&<span className="voice-state-dot"/>}</button></div><AnimatePresence>{voiceStatus!=="idle"&&<motion.section className="voice-panel" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:8}}><div className="voice-panel-head"><div><div className="eyebrow"><span className={voiceStatus==="error"?"muted-dot":"live-dot"}/> GEMINI LIVE</div><h3>{voiceStatus==="connecting"?"Connecting…":voiceStatus==="listening"?"Listening":voiceStatus==="speaking"?"Speaking":"Voice error"}</h3></div><Volume2 size={18}/></div><div className="voice-transcripts"><div><span>YOU</span><p>{voiceInput||"Start speaking…"}</p></div><div><span>WEATHERWISE</span><p>{voiceOutput||"Your spoken response appears here."}</p></div></div>{voiceMessage&&<div className="voice-message">{voiceMessage}</div>}</motion.section>}</AnimatePresence><div className="suggestions"><span>TRY ASKING</span>{suggestions.map(s=><button key={s} onClick={()=>void ask(s)}>{s}</button>)}</div></section>
- {turns.length>0&&<section className="conversation" aria-label="Conversation">{turns.map((turn,index)=><article className="turn" key={`${turn.at}-${index}`}><div className="user-turn"><span>YOU · {new Date(turn.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span><p>{turn.question}</p></div>{index<turns.length-1&&turn.answer&&<div className="assistant-turn"><span>WEATHERWISE · {turn.status?.replaceAll("_"," ").toUpperCase()}</span><p>{turn.answer}</p></div>}{index===turns.length-1&&loading&&<div className="assistant-turn pending"><span>WEATHERWISE</span><p><i className="spinner dark"/> Checking the requested forecast and policy…</p></div>}</article>)}</section>}
- <AnimatePresence>{error&&<motion.div className="error" initial={{opacity:0,y:8}} animate={{opacity:1,y:0}}>{error} <button onClick={()=>setError("")}>Dismiss</button></motion.div>}</AnimatePresence>
- <AnimatePresence>{reply&&<motion.section className="result" initial={{opacity:0,y:18}} animate={{opacity:1,y:0}} transition={{duration:.35}}>
-   <div className="result-head"><div><div className="eyebrow"><span className={reply.status==="matched"?"live-dot":"muted-dot"}/>{reply.status==="no_policy"?"NO POLICY MATCH":reply.status.replaceAll("_"," ").toUpperCase()}</div><h2>Your advisory</h2></div><button className="icon-button" title="Clear conversation" onClick={()=>{void stopVoice();setReply(null);setTurns([]);sessionStorage.removeItem("weatherwise-session");setTraceOpen(false);}}><RotateCcw size={16}/></button></div>
-   <p className="answer">{reply.answer}</p>
-   {reply.location&&<div className="location"><MapPin size={15}/>{reply.location.name}, {reply.location.country}</div>}
-   {reply.weather&&<><div className="weather-label">FORECAST SNAPSHOT <span>{reply.weather.observed_at?.replace("T"," · ")} · {reply.weather.timezone}</span></div><div className="weather-grid"><Metric icon={<Thermometer/>} label="Temperature" value={reply.weather.temperature_2m==null?"—":`${reply.weather.temperature_2m}°C`}/><Metric icon={<Wind/>} label="Wind" value={reply.weather.wind_speed_10m==null?"—":`${reply.weather.wind_speed_10m} km/h`}/><Metric icon={<Droplets/>} label="Rain chance" value={reply.weather.precipitation_probability==null?"—":`${reply.weather.precipitation_probability}%`}/><Metric icon={<Sun/>} label="UV index" value={reply.weather.uv_index==null?"—":reply.weather.uv_index}/></div></>}
-   {reply.policy?.sop_id&&<div className="citation"><ShieldCheck size={17}/><div><b>{reply.policy.sop_id} · {reply.policy.title}</b><span>{reply.policy.severity} SEVERITY · DETERMINISTIC POLICY</span></div></div>}
-   <button className="trace-toggle" onClick={()=>setTraceOpen(!traceOpen)}>Engineering trace <ChevronDown size={15} className={traceOpen?"turned":""}/></button>{traceOpen&&<ol className="trace">{reply.trace.map((x,i)=><li key={i}>{x}</li>)}{reply.policy?.trace?.map((x,i)=><li key={`policy-${i}`}>{x.sop_id}: {x.detail}</li>)}</ol>}
- </motion.section>}</AnimatePresence>
- <footer><span>Weather facts from <b>{reply?.weather?.source || "Open-Meteo"}</b></span><span>Safety decisions from written SOPs</span></footer></main>
+  // Session ID for contextual follow-ups
+  const [sessionId] = useState(() => `session_${Math.random().toString(36).substring(2, 11)}`);
+
+  // Language state
+  const [language, setLanguage] = useState<VoiceLanguage>("en-IN");
+
+  // Location state
+  const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "detecting" | "granted" | "denied" | "unavailable"
+  >("idle");
+  const [locationError, setLocationError] = useState<string>("");
+
+  // Chat conversation state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Voice engine state
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
+  const [voiceMode, setVoiceMode] = useState<"gemini_live" | "fallback">("gemini_live");
+  const [voiceStatusMsg, setVoiceStatusMsg] = useState("");
+  const [userVoiceTranscript, setUserVoiceTranscript] = useState("");
+  const [assistantVoiceTranscript, setAssistantVoiceTranscript] = useState("");
+
+  const voiceEngineRef = useRef<WeatherwiseVoiceEngine | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  // Request browser geolocation
+  const handleRequestLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("unavailable");
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setLocationStatus("detecting");
+    setLocationError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords: CurrentLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date(position.timestamp).toISOString(),
+        };
+        setCurrentLocation(coords);
+        setLocationStatus("granted");
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationStatus("denied");
+          setLocationError("Location permission denied. Please allow access in browser or specify a city.");
+        } else if (error.code === error.TIMEOUT) {
+          setLocationStatus("unavailable");
+          setLocationError("Location request timed out. Please try again.");
+        } else {
+          setLocationStatus("unavailable");
+          setLocationError("Location information is unavailable.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  }, []);
+
+  const handleClearLocation = useCallback(() => {
+    setCurrentLocation(null);
+    setLocationStatus("idle");
+    setLocationError("");
+  }, []);
+
+  // Send typed query to Weatherwise backend
+  const handleSendMessage = async (textToSend?: string) => {
+    const query = (textToSend || inputValue).trim();
+    if (!query || isLoading) return;
+
+    setInputValue("");
+    setErrorMessage(null);
+
+    const userMessage: ChatMessage = {
+      id: `user_${Date.now()}`,
+      role: "user",
+      content: query,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: query,
+          current_location: currentLocation,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to reach the weather advisory service. Please try again.");
+      }
+
+      const data: ChatResponse = await res.json();
+
+      const assistantMessage: ChatMessage = {
+        id: `asst_${Date.now()}`,
+        role: "assistant",
+        content: data.answer,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        data: data,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // If user query required location and it was missing, trigger prompt
+      if (data.status === "needs_location" && locationStatus === "idle") {
+        handleRequestLocation();
+      }
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "An unexpected error occurred. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize and manage Voice Engine
+  const startVoice = useCallback(async () => {
+    if (voiceEngineRef.current) {
+      voiceEngineRef.current.stop();
+    }
+
+    const engine = new WeatherwiseVoiceEngine("", sessionId, language, {
+      onStatusChange: (status, mode, msg) => {
+        setVoiceStatus(status);
+        setVoiceMode(mode);
+        if (msg) setVoiceStatusMsg(msg);
+      },
+      onUserTranscript: (text) => {
+        setUserVoiceTranscript(text);
+      },
+      onAssistantTranscript: (text) => {
+        setAssistantVoiceTranscript(text);
+      },
+      onAdvisoryResult: (data, prompt) => {
+        const asstData = data as ChatResponse;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `voice_user_${Date.now()}`,
+            role: "user",
+            content: prompt,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+          {
+            id: `voice_asst_${Date.now()}`,
+            role: "assistant",
+            content: asstData.answer,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            data: asstData,
+          },
+        ]);
+      },
+      getCurrentLocation: () => currentLocation,
+    });
+
+    voiceEngineRef.current = engine;
+    await engine.start();
+  }, [sessionId, language, currentLocation]);
+
+  const stopVoice = useCallback(() => {
+    if (voiceEngineRef.current) {
+      voiceEngineRef.current.stop();
+      voiceEngineRef.current = null;
+    }
+    setVoiceStatus("idle");
+    setVoiceStatusMsg("");
+  }, []);
+
+  const handleLanguageChange = (newLang: VoiceLanguage) => {
+    setLanguage(newLang);
+    if (voiceEngineRef.current) {
+      voiceEngineRef.current.setLanguage(newLang);
+    }
+  };
+
+  // Teardown voice on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceEngineRef.current) {
+        voiceEngineRef.current.stop();
+      }
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100">
+      {/* Header */}
+      <Header
+        language={language}
+        onLanguageChange={handleLanguageChange}
+        currentLocation={currentLocation}
+        locationStatus={locationStatus}
+        onRequestLocation={handleRequestLocation}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+        {/* Location Bar */}
+        <LocationBar
+          currentLocation={currentLocation}
+          status={locationStatus}
+          errorMessage={locationError}
+          onRequestLocation={handleRequestLocation}
+          onClearLocation={handleClearLocation}
+        />
+
+        {/* Real-time Voice Controller */}
+        <VoiceController
+          status={voiceStatus}
+          mode={voiceMode}
+          language={language}
+          statusMessage={voiceStatusMsg}
+          userTranscript={userVoiceTranscript}
+          assistantTranscript={assistantVoiceTranscript}
+          onStart={startVoice}
+          onStop={stopVoice}
+          onLanguageChange={handleLanguageChange}
+        />
+
+        {/* Conversation Stream */}
+        <div className="flex-1 flex flex-col gap-5 min-h-[300px]">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl border border-slate-900 bg-slate-900/30">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-3 shadow-inner">
+                <Bot className="w-6 h-6" />
+              </div>
+              <h2 className="text-lg font-bold text-slate-100">Welcome to Weatherwise</h2>
+              <p className="text-xs text-slate-400 max-w-md mt-1 leading-relaxed">
+                Ask about cycling, running, hiking, walking, picnics, commuting, or park visits.
+                All safety recommendations are grounded in live Open-Meteo forecasts and written SOP policies.
+              </p>
+              <div className="mt-6 w-full max-w-lg">
+                <Suggestions language={language} onSelect={(p) => handleSendMessage(p)} />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((msg) => (
+                <div key={msg.id} className="space-y-2">
+                  {msg.role === "user" ? (
+                    <div className="flex justify-end">
+                      <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-sm bg-cyan-600/90 text-white px-4 py-2.5 text-sm shadow-md">
+                        <p>{msg.content}</p>
+                        <span className="text-[10px] text-cyan-200 mt-1 block text-right">
+                          {msg.timestamp}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-start gap-1">
+                      {msg.data ? (
+                        <AdvisoryCard response={msg.data} />
+                      ) : (
+                        <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tl-sm bg-slate-900 border border-slate-800 text-slate-100 px-4 py-2.5 text-sm">
+                          <p>{msg.content}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs text-slate-300">
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  <span>Fetching live Open-Meteo forecast and evaluating written SOP policies...</span>
+                </div>
+              )}
+
+              {/* Error banner */}
+              {errorMessage && (
+                <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-950/50 border border-rose-800/80 text-rose-300 text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <div ref={chatScrollRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Form Area */}
+        <div className="sticky bottom-4 z-30 pt-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent">
+          {messages.length > 0 && (
+            <div className="mb-2">
+              <Suggestions language={language} onSelect={(p) => handleSendMessage(p)} />
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }}
+            className="flex items-center gap-2 p-2 rounded-2xl bg-slate-900/90 border border-slate-800 focus-within:border-cyan-500/80 shadow-2xl backdrop-blur-md transition-colors"
+          >
+            <div className="pl-3 text-slate-500">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder='Ask a weather question (e.g., "Is it safe to cycle in Bhopal today?" or "Can I walk here?")...'
+              aria-label="Outdoor weather advisory question"
+              disabled={isLoading}
+              className="flex-1 bg-transparent px-2 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none disabled:opacity-50"
+            />
+
+            <button
+              type="submit"
+              disabled={isLoading || !inputValue.trim()}
+              aria-label="Send query"
+              className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 disabled:hover:bg-cyan-500 text-slate-950 font-bold transition-all shadow-md cursor-pointer shrink-0"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </form>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full border-t border-slate-900 py-4 text-center text-[11px] text-slate-500">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>Weatherwise © {new Date().getFullYear()} — Grounded Outdoor Safety Advisory</span>
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-cyan-400" />
+            Deterministic SOP Policy Engine &bull; Live Open-Meteo &bull; Multilingual Gemini Live
+          </span>
+        </div>
+      </footer>
+    </div>
+  );
 }
-function Metric({icon,label,value}:{icon:React.ReactNode;label:string;value:string|number}) {return <div className="metric"><span className="metric-icon">{icon}</span><span className="metric-label">{label}</span><b>{value}</b></div>}
