@@ -7,6 +7,7 @@ class CurrentLocation(BaseModel):
     longitude: float = Field(ge=-180.0, le=180.0)
     accuracy: float | None = Field(default=None, ge=0.0, le=100000.0)
     timestamp: str | None = Field(default=None, max_length=100)
+    city_name: str | None = Field(default=None, max_length=200)
 
 
 class Location(BaseModel):

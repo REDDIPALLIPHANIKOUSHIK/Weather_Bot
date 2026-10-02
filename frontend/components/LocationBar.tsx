@@ -49,7 +49,9 @@ export const LocationBar: React.FC<LocationBarProps> = ({
             {status === "detecting"
               ? "Detecting your location..."
               : status === "granted"
-              ? "Using your current live location"
+              ? currentLocation?.cityName
+                ? `Using live location: ${currentLocation.cityName}`
+                : "Using your current live location"
               : status === "denied"
               ? "Location permission denied"
               : status === "unavailable"

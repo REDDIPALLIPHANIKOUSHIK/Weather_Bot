@@ -7,6 +7,7 @@ import { LocationBar } from "../components/LocationBar";
 import { VoiceController } from "../components/VoiceController";
 import { AdvisoryCard } from "../components/AdvisoryCard";
 import { Suggestions } from "../components/Suggestions";
+import { CurrentLocationWidget } from "../components/CurrentLocationWidget";
 import {
   ChatMessage,
   ChatResponse,
@@ -15,6 +16,7 @@ import {
   VoiceStatus,
 } from "../lib/types";
 import { WeatherwiseVoiceEngine } from "../lib/voice";
+import { reverseGeocodeCoordinates } from "../lib/reverse-geo";
 
 export default function Home() {
   // Session ID for contextual follow-ups
@@ -63,15 +65,28 @@ export default function Home() {
     setLocationError("");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const coords: CurrentLocation = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const initialCoords: CurrentLocation = {
+          latitude: lat,
+          longitude: lon,
           accuracy: position.coords.accuracy,
           timestamp: new Date(position.timestamp).toISOString(),
+          cityName: null,
         };
-        setCurrentLocation(coords);
+        setCurrentLocation(initialCoords);
         setLocationStatus("granted");
+
+        // Reverse geocode coordinates to get friendly city/place name
+        try {
+          const resolvedName = await reverseGeocodeCoordinates(lat, lon);
+          setCurrentLocation((prev) =>
+            prev ? { ...prev, cityName: resolvedName } : prev
+          );
+        } catch (e) {
+          console.warn("Could not reverse-geocode:", e);
+        }
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) {
@@ -246,6 +261,12 @@ export default function Home() {
           errorMessage={locationError}
           onRequestLocation={handleRequestLocation}
           onClearLocation={handleClearLocation}
+        />
+
+        {/* Live Weather Widget for Detected Current Location */}
+        <CurrentLocationWidget
+          currentLocation={currentLocation}
+          onActivitySelect={(q) => handleSendMessage(q)}
         />
 
         {/* Real-time Voice Controller */}

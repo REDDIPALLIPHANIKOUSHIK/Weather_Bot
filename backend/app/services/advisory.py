@@ -116,13 +116,14 @@ class AdvisoryCoordinator:
         # Case B: "here" / "current location" or no explicit city with live coordinates
         elif intent.use_current_location or (not intent.location_text and current_location is not None):
             if current_location is not None:
+                loc_name = current_location.city_name.strip() if current_location.city_name else "Your current location"
                 target_location = Location(
-                    name="Your current location",
+                    name=loc_name,
                     country="",
                     latitude=current_location.latitude,
                     longitude=current_location.longitude,
                 )
-                trace.append(f"Accepted live browser coordinates ({current_location.latitude:.4f}, {current_location.longitude:.4f})")
+                trace.append(f"Accepted live browser coordinates ({current_location.latitude:.4f}, {current_location.longitude:.4f}) for '{loc_name}'")
             else:
                 trace.append("Current location requested but coordinates not provided by browser")
                 return ChatResponse(
