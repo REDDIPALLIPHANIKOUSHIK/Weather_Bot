@@ -97,7 +97,7 @@ async def voice_session(request: dict | None = None):
             "message": "Gemini Live is not configured; multilingual browser voice is available.",
         }
 
-    model = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.8-live")
+    model = os.getenv("GEMINI_LIVE_MODEL", "gemini-3.1-flash-live-preview")
     now = datetime.now(timezone.utc)
     system_instruction = (
         "You are Weatherwise, a real-time outdoor weather-advisory voice assistant. "
