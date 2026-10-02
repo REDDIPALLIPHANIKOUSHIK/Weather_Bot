@@ -5,6 +5,13 @@ export const metadata: Metadata = {
   title: "Weatherwise — Outdoor Activity Weather Advisory Bot",
   description:
     "Production-grade weather advisory platform evaluating outdoor activities against live Open-Meteo forecasts and written deterministic SOP policies.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
